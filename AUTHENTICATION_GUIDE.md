@@ -3,8 +3,8 @@
 ## ✅ ADMIN LOGIN CREDENTIALS
 
 ```
-📧 Email:    admin@itda.edu
-🔐 Password: Admin@123456
+📧 Email:    rathodvenkatesh.work@gmail.com
+🔐 Password: Venky@9001
 ```
 
 **Login URL**: https://itda-ai-classroom.vercel.app/login
@@ -50,15 +50,15 @@ POST https://itda-ai-classroom.onrender.com/api/auth/login
 
 Request:
 {
-  "email": "admin@itda.edu",
-  "password": "Admin@123456"
+  "email": "rathodvenkatesh.work@gmail.com",
+  "password": "Venky@9001"
 }
 
 Response:
 {
   "id": "1",
-  "email": "admin@itda.edu",
-  "full_name": "ITDA Admin",
+  "email": "rathodvenkatesh.work@gmail.com",
+  "full_name": "Admin",
   "role": "admin"
 }
 ```
@@ -366,7 +366,7 @@ curl -X POST https://itda-ai-classroom.onrender.com/api/students \
         "url": "https://itda-ai-classroom.onrender.com/api/auth/login",
         "body": {
           "mode": "raw",
-          "raw": "{\"email\": \"admin@itda.edu\", \"password\": \"Admin@123456\"}"
+          "raw": "{\"email\": \"rathodvenkatesh.work@gmail.com\", \"password\": \"Venky@9001\"}"
         }
       }
     },
@@ -406,8 +406,8 @@ curl -X POST https://itda-ai-classroom.onrender.com/api/students \
 
 1. ✅ **Login as Admin**
    - Go to: https://itda-ai-classroom.vercel.app/login
-   - Email: `admin@itda.edu`
-   - Password: `Admin@123456`
+   - Email: `rathodvenkatesh.work@gmail.com`
+   - Password: `Venky@9001`
 
 2. ✅ **Create Schools** (from Admin Dashboard)
    
@@ -422,8 +422,8 @@ curl -X POST https://itda-ai-classroom.onrender.com/api/students \
 ## 🆘 TROUBLESHOOTING
 
 ### "Invalid email or password"
-- ✅ Check email is correct: `admin@itda.edu`
-- ✅ Check password is correct: `Admin@123456`
+- ✅ Check email is correct: `rathodvenkatesh.work@gmail.com`
+- ✅ Check password is correct: `Venky@9001`
 - ✅ API is responding at: https://itda-ai-classroom.onrender.com/api/health
 
 ### "Teacher/Student won't login"

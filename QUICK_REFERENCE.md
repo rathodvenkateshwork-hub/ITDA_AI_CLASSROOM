@@ -4,7 +4,7 @@
 
 | Role | Type | Email | Password | URL |
 |------|------|-------|----------|-----|
-| **Admin** | Portal | `admin@itda.edu` | `Admin@123456` | https://itda-ai-classroom.vercel.app/login |
+| **Admin** | Portal | `rathodvenkatesh.work@gmail.com` | `Venky@9001` | https://itda-ai-classroom.vercel.app/login |
 | **Teacher** | Auto-created | `teacher@example.com` | Custom | Same portal |
 | **Student** | Auto-created | ID-based | Custom | Same app |
 

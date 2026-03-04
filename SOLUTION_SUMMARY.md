@@ -6,10 +6,10 @@
 
 ### Q1: What are the Admin Login Credentials?
 ```
-📧 Email:    admin@itda.edu
-🔐 Password: Admin@123456
+📧 Email:    rathodvenkatesh.work@gmail.com
+🔐 Password: Venky@9001
 ```
-✅ **STATUS: CREATED AND READY TO USE**
+✅ **STATUS: UPDATED AND READY TO USE**
 
 ---
 
@@ -66,8 +66,8 @@ STUDENT CREATION FLOW:
 ✅ SOLUTION PROVIDED!
 
 YOUR CREDENTIALS:
-📧 Email:    admin@itda.edu
-🔐 Password: Admin@123456
+📧 Email:    rathodvenkatesh.work@gmail.com
+🔐 Password: Venky@9001
 
 LOGIN URL: https://itda-ai-classroom.vercel.app/login
 
@@ -116,7 +116,7 @@ STATUS: Ready to use right now!
 
 | Feature | Status | Details |
 |---------|--------|---------|
-| **Admin Portal Login** | ✅ LIVE | Email: admin@itda.edu, Password: Admin@123456 |
+| **Admin Portal Login** | ✅ LIVE | Email: rathodvenkatesh.work@gmail.com, Password: Venky@9001 |
 | **Teacher Registration** | ✅ LIVE | Auto-creates credentials with bcrypt hashing |
 | **Student Registration** | ✅ LIVE | Auto-creates credentials with bcrypt hashing |
 | **Teacher CRUD** | ✅ LIVE | Create, Read, Update, Delete all working |
@@ -132,9 +132,9 @@ STATUS: Ready to use right now!
 ## 🚀 WHAT'S NEW - CREATED FOR YOU
 
 ### 1. Admin Credentials ✅
-Created default admin account:
-- Email: `admin@itda.edu`
-- Password: `Admin@123456`
+Updated admin account credentials:
+- Email: `rathodvenkatesh.work@gmail.com`
+- Password: `Venky@9001`
 - Status: Secure bcrypt hash in database
 
 ### 2. Admin Creation Endpoint ✅
@@ -176,8 +176,8 @@ Complete guides created:
 ### Workflow 1: Login as Admin
 ```
 1. Go to: https://itda-ai-classroom.vercel.app/login
-2. Enter email: admin@itda.edu
-3. Enter password: Admin@123456
+2. Enter email: rathodvenkatesh.work@gmail.com
+3. Enter password: Venky@9001
 4. Click Login
 5. ✅ Access admin dashboard!
 ```
@@ -360,8 +360,8 @@ curl -X POST https://itda-ai-classroom.onrender.com/api/admin/create \
 ║        ✅ COMPLETE AUTHENTICATION SYSTEM READY! ✅           ║
 ║                                                              ║
 ║  Admin Credentials:                                          ║
-║     📧 Email:    admin@itda.edu                              ║
-║     🔐 Password: Admin@123456                                ║
+║     📧 Email:    rathodvenkatesh.work@gmail.com              ║
+║     🔐 Password: Venky@9001                                  ║
 ║                                                              ║
 ║  Teacher Registration:                    ✅ AUTO-WORKING   ║
 ║  Student Registration:                    ✅ AUTO-WORKING   ║

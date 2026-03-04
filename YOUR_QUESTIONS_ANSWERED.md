@@ -4,11 +4,11 @@
 
 ### ✅ YOUR ADMIN CREDENTIALS:
 ```
-📧 Email:    admin@itda.edu
-🔐 Password: Admin@123456
+📧 Email:    rathodvenkatesh.work@gmail.com
+🔐 Password: Venky@9001
 ```
 
-**Status**: ✅ **CREATED AND READY TO USE**
+**Status**: ✅ **UPDATED AND READY TO USE**
 
 These credentials have been generated and securely stored in Supabase database with bcrypt hashing.
 
@@ -153,16 +153,16 @@ Student Password: StudentPass@123
 Your credentials have been created:
 
 ```
-📧 Email:    admin@itda.edu
-🔐 Password: Admin@123456
+📧 Email:    rathodvenkatesh.work@gmail.com
+🔐 Password: Venky@9001
 ```
 
 ### How to Login:
 
 1. **Go to**: https://itda-ai-classroom.vercel.app/login
 2. **Enter**:
-   - Email: `admin@itda.edu`
-   - Password: `Admin@123456`
+   - Email: `rathodvenkatesh.work@gmail.com`
+   - Password: `Venky@9001`
 3. **Click Login**
 4. ✅ **You're in the Admin Dashboard!**
 
@@ -173,7 +173,7 @@ Your credentials have been created:
 ### ✅ Authentication System
 | Component | Status | Details |
 |-----------|--------|---------|
-| Admin Login | ✅ WORKING | Email: admin@itda.edu, Password: Admin@123456 |
+| Admin Login | ✅ WORKING | Email: rathodvenkatesh.work@gmail.com, Password: Venky@9001 |
 | Teacher Login | ✅ WORKING | Auto-created when teacher is registered |
 | Student Login | ✅ WORKING | Auto-created when student is registered |
 | Password Hashing | ✅ ACTIVE | Bcrypt with 10 rounds |
@@ -320,8 +320,8 @@ curl -X POST https://itda-ai-classroom.onrender.com/api/auth/login/teacher \
 curl -X POST https://itda-ai-classroom.onrender.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@itda.edu",
-    "password": "Admin@123456"
+    "email": "rathodvenkatesh.work@gmail.com",
+    "password": "Venky@9001"
   }'
 ```
 
@@ -351,8 +351,8 @@ curl -X POST https://itda-ai-classroom.onrender.com/api/auth/login \
 1. **Login to Admin Portal**
    ```
    URL: https://itda-ai-classroom.vercel.app/login
-   Email: admin@itda.edu
-   Password: Admin@123456
+   Email: rathodvenkatesh.work@gmail.com
+   Password: Venky@9001
    ```
 
 2. **Create Your First School**
@@ -401,8 +401,8 @@ curl -X POST https://itda-ai-classroom.onrender.com/api/auth/login \
 ### ✅ All Your Questions Answered:
 
 1. **Admin Credentials**
-   - Email: `admin@itda.edu`
-   - Password: `Admin@123456`
+   - Email: `rathodvenkatesh.work@gmail.com`
+   - Password: `Venky@9001`
    - ✅ Ready to login now!
 
 2. **Registration & CRUD**
@@ -442,8 +442,8 @@ curl -X POST https://itda-ai-classroom.onrender.com/api/auth/login \
 ╔═══════════════════════════════════════════════════════╗
 ║                                                       ║
 ║  ✅ ADMIN CREDENTIALS READY                          ║
-║     Email: admin@itda.edu                            ║
-║     Password: Admin@123456                           ║
+║     Email: rathodvenkatesh.work@gmail.com            ║
+║     Password: Venky@9001                             ║
 ║                                                       ║
 ║  ✅ REGISTRATION & CRUD WORKING                      ║
 ║     Teachers: Auto-credentials                       ║

@@ -55,7 +55,7 @@ Topics:     0 (database ready for data)
 ## 🔌 ALL API ENDPOINTS AVAILABLE
 
 ### Authentication Routes ✅
-- `POST /api/auth/login` - Admin login
+- `POST /api/auth/login` - Admin login (Email: rathodvenkatesh.work@gmail.com, Password: Venky@9001)
 - `POST /api/auth/login/teacher` - Teacher login
 
 ### Data Management Routes ✅

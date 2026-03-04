@@ -4,10 +4,10 @@
 
 ### Q1: "What are the Admin Login Creds?"
 ```
-📧 Email:    admin@itda.edu
-🔐 Password: Admin@123456
+📧 Email:    rathodvenkatesh.work@gmail.com
+🔐 Password: Venky@9001
 ```
-✅ **Created and Ready to Use!**
+✅ **Updated and Ready to Use!**
 
 ---
 
@@ -80,8 +80,8 @@ Password: TempPass@2025  ← This is what teacher uses to login
 ✅ **DONE! Your Admin Credentials Are Ready:**
 
 ```
-📧 Email:    admin@itda.edu
-🔐 Password: Admin@123456
+📧 Email:    rathodvenkatesh.work@gmail.com
+🔐 Password: Venky@9001
 
 🌐 Login URL: https://itda-ai-classroom.vercel.app/login
 ```
@@ -98,8 +98,8 @@ Password: TempPass@2025  ← This is what teacher uses to login
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  1️⃣  ADMIN LOGIN (PORTAL)                              │
-│     └─ Email: admin@itda.edu                           │
-│     └─ Password: Admin@123456                          │
+│     └─ Email: rathodvenkatesh.work@gmail.com           │
+│     └─ Password: Venky@9001                            │
 │     └─ Access: Full System Management                  │
 │                                                         │
 │  2️⃣  ADMIN CREATES SCHOOL                              │
@@ -140,8 +140,8 @@ Password: TempPass@2025  ← This is what teacher uses to login
 ## 📊 WHAT'S BEEN CREATED FOR YOU
 
 ### 1. Admin Credentials ✅
-- Email: `admin@itda.edu`
-- Password: `Admin@123456`
+- Email: `rathodvenkatesh.work@gmail.com`
+- Password: `Venky@9001`
 - Status: Stored in Supabase with bcrypt hash
 
 ### 2. New API Endpoints ✅
@@ -168,8 +168,8 @@ Usage: node scripts/create-admin.mjs "email" "password" "name"
 ### Login as Admin Now
 1. Go to: https://itda-ai-classroom.vercel.app/login
 2. Enter:
-   - Email: `admin@itda.edu`
-   - Password: `Admin@123456`
+   - Email: `rathodvenkatesh.work@gmail.com`
+   - Password: `Venky@9001`
 3. Click Login
 4. You're in the Admin Dashboard! ✅
 
@@ -377,8 +377,8 @@ GET https://itda-ai-classroom.onrender.com/api/all
 ### ✨ Your Questions Answered:
 
 1. ✅ **Admin Credentials Ready**
-   - Email: `admin@itda.edu`
-   - Password: `Admin@123456`
+   - Email: `rathodvenkatesh.work@gmail.com`
+   - Password: `Venky@9001`
 
 2. ✅ **Registration & CRUD FULLY WORKING**
    - Teachers created with auto-credentials
