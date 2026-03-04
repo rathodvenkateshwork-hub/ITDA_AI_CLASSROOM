@@ -894,6 +894,55 @@ app.post("/api/teachers/leave", async (req, res) => {
   }
 });
 
+app.post("/api/admin/create", async (req, res) => {
+  const { email, password, full_name } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: "email and password are required" });
+  }
+  const emailVal = String(email).trim();
+  const passwordVal = String(password).trim();
+  const nameVal = full_name ? String(full_name).trim() : emailVal;
+  
+  try {
+    const existingAdmin = await Admin.findOne({ email: emailVal }).lean();
+    if (existingAdmin) {
+      return res.status(400).json({ error: "Admin with this email already exists" });
+    }
+    
+    const passwordHash = await bcrypt.hash(passwordVal, 10);
+    const adminId = await getNextId("admins");
+    
+    await Admin.create({
+      id: adminId,
+      email: emailVal,
+      password_hash: passwordHash,
+      full_name: nameVal,
+      role: "admin",
+    });
+    
+    res.status(201).json({
+      id: String(adminId),
+      email: emailVal,
+      full_name: nameVal,
+      role: "admin",
+      message: "Admin created successfully. Use above credentials to login.",
+    });
+  } catch (err) {
+    console.error("POST /api/admin/create error:", err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
+app.get("/api/admins", async (req, res) => {
+  try {
+    const admins = await Admin.find({}).lean();
+    res.json(admins || []);
+  } catch (err) {
+    console.error("GET /api/admins error:", err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`API server running on http://localhost:${PORT}`);
