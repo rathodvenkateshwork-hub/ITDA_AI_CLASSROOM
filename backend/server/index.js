@@ -3,6 +3,9 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import { ensureSupabase, getNextId, makeLooseModel } from "./supabase-model.js";
+import adminRoutes from "../routes/admin.js";
+import teacherRoutes from "../routes/teacher.js";
+import studentRoutes from "../routes/student.js";
 
 const app = express();
 app.use(cors());
@@ -942,6 +945,19 @@ app.get("/api/admins", async (req, res) => {
     res.status(500).json({ error: String(err.message) });
   }
 });
+
+// ============================================
+// ROUTE REGISTRATIONS
+// ============================================
+
+// Admin Portal Routes
+app.use("/api/admin", adminRoutes);
+
+// Teacher Portal Routes
+app.use("/api/teacher", teacherRoutes);
+
+// Student Portal Routes
+app.use("/api/student", studentRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
