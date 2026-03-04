@@ -12,7 +12,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
-import AdminLayout from '@/components/AdminLayout';
 
 const mockActivities = [
   {
@@ -122,9 +121,9 @@ export default function ActivityManagement() {
   };
 
   return (
-    <AdminLayout>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Activity Management</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Activity Management</h1>
         <p className="text-gray-600">Organize and manage academic, sports, and cultural activities</p>
       </div>
 
@@ -335,6 +334,6 @@ export default function ActivityManagement() {
           </div>
         </CardContent>
       </Card>
-    </AdminLayout>
+    </div>
   );
 }
