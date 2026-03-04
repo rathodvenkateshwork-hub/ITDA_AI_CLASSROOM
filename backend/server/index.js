@@ -759,12 +759,12 @@ app.put("/api/teachers/:id/assignments", async (req, res) => {
     await TeacherAssignment.deleteMany({ teacher_id: { $in: idVariants(id) } });
     if (Array.isArray(assignments) && assignments.length > 0) {
       const docs = [];
+      let baseId = await getNextId("teacher_assignments");
       for (const a of assignments) {
         const cid = a.class_id != null ? toStoredId(a.class_id) : null;
         const subid = a.subject_id != null ? toStoredId(a.subject_id) : null;
         if (cid != null && subid != null) {
-          const assignmentId = await getNextId("teacher_assignments");
-          docs.push({ id: assignmentId, teacher_id: toStoredId(id), class_id: cid, subject_id: subid });
+          docs.push({ id: baseId++, teacher_id: toStoredId(id), class_id: cid, subject_id: subid });
         }
       }
       if (docs.length) await TeacherAssignment.insertMany(docs);
