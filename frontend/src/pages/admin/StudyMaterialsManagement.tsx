@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import AdminLayout from '@/components/AdminLayout';
 
 const mockMaterials = [
   {
@@ -109,9 +110,9 @@ export default function StudyMaterialsManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <AdminLayout>
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">Study Materials</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Study Materials</h1>
         <p className="text-gray-600">Upload, manage, and organize study materials for all chapters and topics</p>
       </div>
 
@@ -276,6 +277,6 @@ export default function StudyMaterialsManagement() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </AdminLayout>
   );
 }
