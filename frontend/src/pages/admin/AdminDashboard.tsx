@@ -1654,7 +1654,25 @@ const AdminDashboard = () => {
           {editingTeacherId && (() => {
             const t = teachers.find((x) => x.id === editingTeacherId);
             if (!t) return null;
+            
+            // Debug logging
+            console.log('🔍 Edit Dialog Debug:', {
+              teacherId: editingTeacherId,
+              teacher: t,
+              teacherEditSchoolId,
+              classesCount: classes.length,
+              classesSample: classes.slice(0, 3),
+              uniqueSchoolIds: [...new Set(classes.map(c => c.schoolId))],
+            });
+            
             const classesForEditSchool = classes.filter((c) => c.schoolId === teacherEditSchoolId);
+            
+            console.log('📚 Classes for school:', {
+              schoolId: teacherEditSchoolId,
+              matchingClasses: classesForEditSchool,
+              matchCount: classesForEditSchool.length
+            });
+            
             return (
               <div className="space-y-4 pt-2">
                 <p className="text-sm text-muted-foreground">Teacher: <strong>{t.name}</strong></p>
