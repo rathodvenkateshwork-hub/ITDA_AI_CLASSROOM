@@ -867,6 +867,68 @@ app.delete("/api/schools/:id", async (req, res) => {
   }
 });
 
+// Classes management endpoints
+app.post("/api/classes", async (req, res) => {
+  const { school_id, name, section, grade } = req.body || {};
+  if (!school_id || !name || !grade) {
+    return res.status(400).json({ error: "school_id, name and grade are required" });
+  }
+  try {
+    const id = await getNextId("classes");
+    await ClassModel.create({
+      id,
+      school_id: toStoredId(school_id),
+      name: String(name).trim(),
+      section: section != null ? String(section).trim() : "",
+      grade: Number(grade),
+      student_count: 0,
+    });
+    res.status(201).json({ 
+      id: String(id), 
+      schoolId: String(school_id), 
+      name: String(name).trim(), 
+      section: section != null ? String(section).trim() : "", 
+      grade: Number(grade),
+      studentCount: 0
+    });
+  } catch (err) {
+    console.error("POST /api/classes error:", err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
+app.put("/api/classes/:id", async (req, res) => {
+  const id = req.params.id;
+  const { school_id, name, section, grade, student_count } = req.body || {};
+  if (!id) return res.status(400).json({ error: "id required" });
+  try {
+    const updates = {};
+    if (school_id !== undefined) updates.school_id = toStoredId(school_id);
+    if (name !== undefined) updates.name = String(name).trim();
+    if (section !== undefined) updates.section = section != null ? String(section).trim() : "";
+    if (grade !== undefined) updates.grade = Number(grade);
+    if (student_count !== undefined) updates.student_count = Number(student_count);
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: "No fields to update" });
+    const result = await ClassModel.findOneAndUpdate(idQuery(id), { $set: updates }, { new: true });
+    res.json({ id: toId(modelId(result)) || String(id), updated: Boolean(result) });
+  } catch (err) {
+    console.error("PUT /api/classes error:", err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
+app.delete("/api/classes/:id", async (req, res) => {
+  const id = req.params.id;
+  if (!id) return res.status(400).json({ error: "id required" });
+  try {
+    const result = await ClassModel.deleteOne(idQuery(id));
+    res.json({ deleted: result.deletedCount > 0 });
+  } catch (err) {
+    console.error("DELETE /api/classes error:", err);
+    res.status(500).json({ error: String(err.message) });
+  }
+});
+
 app.post("/api/teachers/leave", async (req, res) => {
   const { teacher_id, start_date, reason } = req.body || {};
   if (!teacher_id || !start_date || !reason) {

@@ -32,7 +32,7 @@ import {
   PolarAngleAxis, PolarRadiusAxis
 } from "recharts";
 import { StudentForm, TeacherForm } from "./RegistrationForms";
-import { createSchool, updateSchool, deleteSchool, getTeacherAssignments, updateTeacher, updateTeacherAssignments } from "@/api/client";
+import { createSchool, updateSchool, deleteSchool, createClass, updateClass, deleteClass, getTeacherAssignments, updateTeacher, updateTeacherAssignments } from "@/api/client";
 
 const AdminDashboard = () => {
   const { data, loading, error, isFromApi, refetch } = useAppData();
@@ -184,6 +184,35 @@ const AdminDashboard = () => {
       }
     };
   }, []);
+
+  // Classes management state
+  const [classFormOpen, setClassFormOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState<{ id: string; schoolId: string; name: string; section: string; grade: number; studentCount: number } | null>(null);
+  const [classForm, setClassForm] = useState({ schoolId: "", name: "", section: "", grade: 1 });
+  const [classSubmitting, setClassSubmitting] = useState(false);
+  
+  useEffect(() => {
+    if (classFormOpen && editingClass) {
+      setClassForm({ schoolId: editingClass.schoolId, name: editingClass.name, section: editingClass.section, grade: editingClass.grade });
+    } else if (classFormOpen && !editingClass) {
+      setClassForm({ schoolId: "", name: "", section: "", grade: 1 });
+    }
+  }, [classFormOpen, editingClass]);
+  
+  const handleClassSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!classForm.schoolId.trim() || !classForm.name.trim() || !classForm.grade) return;
+    setClassSubmitting(true);
+    if (editingClass) {
+      updateClass(editingClass.id, { school_id: classForm.schoolId, name: classForm.name, section: classForm.section || undefined, grade: classForm.grade })
+        .then(() => { refetch(); setClassFormOpen(false); setEditingClass(null); })
+        .finally(() => setClassSubmitting(false));
+    } else {
+      createClass({ school_id: classForm.schoolId, name: classForm.name, section: classForm.section || undefined, grade: classForm.grade })
+        .then(() => { refetch(); setClassFormOpen(false); })
+        .finally(() => setClassSubmitting(false));
+    }
+  };
 
   useEffect(() => {
     const handleDocClick = (e: MouseEvent) => {
@@ -563,6 +592,7 @@ const AdminDashboard = () => {
         <TabsList className="mb-6 flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="schools">Schools</TabsTrigger>
+          <TabsTrigger value="classes">Classes</TabsTrigger>
           <div
             className="relative inline-block"
             onMouseOver={() => {
@@ -1087,6 +1117,94 @@ const AdminDashboard = () => {
               })()}
 
             </div>
+          )}
+        </TabsContent>
+
+        {/* CLASSES */}
+        <TabsContent value="classes" className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display text-lg font-bold text-foreground">Manage Classes</h3>
+            <Button className="gap-2" onClick={() => { setEditingClass(null); setClassFormOpen(true); }}>
+              <GraduationCap className="w-4 h-4" /> Add Class
+            </Button>
+          </div>
+
+          {/* Group classes by school */}
+          {schools.map(school => {
+            const schoolClasses = classes.filter(c => c.schoolId === school.id);
+            if (schoolClasses.length === 0) return null;
+            
+            return (
+              <Card key={school.id} className="shadow-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span>{school.name}</span>
+                    <Badge variant="secondary">{schoolClasses.length} classes</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {schoolClasses.map(cls => (
+                      <div key={cls.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                        <div>
+                          <p className="font-medium text-foreground">{cls.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Grade {cls.grade} • {cls.section || "No section"} • {cls.studentCount} students
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => { 
+                              setEditingClass({ 
+                                id: cls.id, 
+                                schoolId: cls.schoolId, 
+                                name: cls.name, 
+                                section: cls.section, 
+                                grade: cls.grade, 
+                                studentCount: cls.studentCount 
+                              }); 
+                              setClassFormOpen(true); 
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-destructive" 
+                            onClick={() => { 
+                              if (window.confirm(`Delete class "${cls.name}"? This will affect ${cls.studentCount} students.`)) {
+                                deleteClass(cls.id).then(() => refetch());
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {/* Show message if no classes exist */}
+          {classes.length === 0 && (
+            <Card className="shadow-card border-border">
+              <CardContent className="p-8 text-center">
+                <GraduationCap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="font-display text-lg font-bold text-foreground mb-2">No Classes Yet</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create classes for your schools to get started. Classes are required to assign teachers and enroll students.
+                </p>
+                <Button onClick={() => { setEditingClass(null); setClassFormOpen(true); }}>
+                  <GraduationCap className="w-4 h-4 mr-2" /> Create First Class
+                </Button>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
@@ -1705,9 +1823,16 @@ const AdminDashboard = () => {
                               <SelectValue placeholder="Class" />
                             </SelectTrigger>
                             <SelectContent>
-                              {classesForEditSchool.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                              ))}
+                              {classesForEditSchool.length === 0 ? (
+                                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                  No classes available for this school.<br />
+                                  Please create classes first.
+                                </div>
+                              ) : (
+                                classesForEditSchool.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                           <Select value={a.subjectId} onValueChange={(v) => setTeacherEditAssignments((prev) => prev.map((p, j) => j === i ? { ...p, subjectId: v } : p))}>
@@ -1862,6 +1987,72 @@ const AdminDashboard = () => {
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setSchoolFormOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={schoolSubmitting}>{editingSchool ? "Update" : "Add"} School</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Class Create/Edit Dialog */}
+      <Dialog open={classFormOpen} onOpenChange={setClassFormOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingClass ? "Edit Class" : "Add Class"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleClassSubmit} className="grid gap-4 pt-2">
+            <div>
+              <Label>School</Label>
+              <Select 
+                value={classForm.schoolId} 
+                onValueChange={(v) => setClassForm(f => ({ ...f, schoolId: v }))}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select school" />
+                </SelectTrigger>
+                <SelectContent>
+                  {schools.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Class Name</Label>
+              <Input 
+                value={classForm.name} 
+                onChange={(e) => setClassForm(f => ({ ...f, name: e.target.value }))} 
+                placeholder="e.g., Class 1, Class 2" 
+                required 
+              />
+            </div>
+            <div>
+              <Label>Section</Label>
+              <Input 
+                value={classForm.section} 
+                onChange={(e) => setClassForm(f => ({ ...f, section: e.target.value }))} 
+                placeholder="e.g., A, B (optional)" 
+              />
+            </div>
+            <div>
+              <Label>Grade</Label>
+              <Select 
+                value={String(classForm.grade)} 
+                onValueChange={(v) => setClassForm(f => ({ ...f, grade: parseInt(v, 10) }))}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(g => (
+                    <SelectItem key={g} value={String(g)}>Grade {g}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setClassFormOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={classSubmitting}>{editingClass ? "Update" : "Add"} Class</Button>
             </div>
           </form>
         </DialogContent>
