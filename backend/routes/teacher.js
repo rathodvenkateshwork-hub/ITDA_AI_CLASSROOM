@@ -5,7 +5,7 @@
 
 import express from 'express';
 import bcrypt from 'bcrypt';
-import { makeLooseModel } from '../supabase-model.js';
+import { makeLooseModel } from '../server/supabase-model.js';
 
 const router = express.Router();
 

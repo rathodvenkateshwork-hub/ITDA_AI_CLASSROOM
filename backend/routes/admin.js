@@ -4,7 +4,7 @@
  */
 
 import express from 'express';
-import { makeLooseModel } from '../supabase-model.js';
+import { makeLooseModel } from '../server/supabase-model.js';
 
 const router = express.Router();
 
