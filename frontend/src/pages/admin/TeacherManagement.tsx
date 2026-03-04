@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Eye, Search, Mail, Phone, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Search, Mail, Phone, Loader2, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { fetchAll, registerTeacher, type AllDataResponse } from '@/api/client';
+import { fetchAll, registerTeacher, updateTeacherAssignments, type AllDataResponse } from '@/api/client';
 
 interface Teacher {
   id: string;
@@ -37,10 +39,28 @@ interface School {
   code: string;
 }
 
+interface Subject {
+  id: string;
+  name: string;
+  icon: string;
+  grades: number[];
+}
+
+interface Class {
+  id: string;
+  schoolId: string;
+  name: string;
+  section: string;
+  grade: number;
+  studentCount: number;
+}
+
 export default function TeacherManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
   const [isAddingTeacher, setIsAddingTeacher] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -53,7 +73,8 @@ export default function TeacherManagement() {
     password: '',
     phone: '',
     school: '',
-    subject: '',
+    selectedSubjects: [] as string[],
+    selectedClasses: [] as string[],
     experience: ''
   });
 
@@ -62,15 +83,9 @@ export default function TeacherManagement() {
     lastName: '',
     email: '',
     password: '',
-    school: ''
-  });
-
-  const [formErrors, setFormErrors] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    school: ''
+    school: '',
+    subjects: '',
+    classes: ''
   });
 
   // Fetch data on component mount
@@ -84,6 +99,8 @@ export default function TeacherManagement() {
       const data = await fetchAll();
       setTeachers(data.teachers);
       setSchools(data.schools);
+      setSubjects(data.subjects);
+      setClasses(data.classes);
     } catch (error) {
       toast({
         title: "Error",
@@ -101,7 +118,9 @@ export default function TeacherManagement() {
       lastName: '',
       email: '',
       password: '',
-      school: ''
+      school: '',
+      subjects: '',
+      classes: ''
     };
     let isValid = true;
 
@@ -137,6 +156,16 @@ export default function TeacherManagement() {
       isValid = false;
     }
 
+    if (formData.selectedSubjects.length === 0) {
+      errors.subjects = 'At least one subject is required';
+      isValid = false;
+    }
+
+    if (formData.selectedClasses.length === 0) {
+      errors.classes = 'At least one class is required';
+      isValid = false;
+    }
+
     setFormErrors(errors);
     return isValid;
   };
@@ -150,16 +179,35 @@ export default function TeacherManagement() {
       setIsSaving(true);
       const full_name = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
       
-      await registerTeacher({
+      // Step 1: Create teacher
+      const result = await registerTeacher({
         full_name,
         email: formData.email.trim(),
         school_id: formData.school,
         password: formData.password,
       });
 
+      // Step 2: Create teacher assignments (link teacher to classes and subjects)
+      if (result.id && formData.selectedClasses.length > 0 && formData.selectedSubjects.length > 0) {
+        const assignments = [];
+        for (const classId of formData.selectedClasses) {
+          for (const subjectId of formData.selectedSubjects) {
+            assignments.push({
+              class_id: classId,
+              subject_id: subjectId
+            });
+          }
+        }
+
+        await updateTeacherAssignments(result.id, {
+          school_id: formData.school,
+          assignments
+        });
+      }
+
       toast({
         title: "Success",
-        description: "Teacher registered successfully!",
+        description: "Teacher registered successfully with class and subject assignments!",
       });
 
       // Reset form and close dialog
@@ -170,7 +218,8 @@ export default function TeacherManagement() {
         password: '',
         phone: '',
         school: '',
-        subject: '',
+        selectedSubjects: [],
+        selectedClasses: [],
         experience: ''
       });
       setFormErrors({
@@ -178,7 +227,9 @@ export default function TeacherManagement() {
         lastName: '',
         email: '',
         password: '',
-        school: ''
+        school: '',
+        subjects: '',
+        classes: ''
       });
       setIsAddingTeacher(false);
 
@@ -193,6 +244,45 @@ export default function TeacherManagement() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const toggleSubject = (subjectId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedSubjects: prev.selectedSubjects.includes(subjectId)
+        ? prev.selectedSubjects.filter(id => id !== subjectId)
+        : [...prev.selectedSubjects, subjectId]
+    }));
+    setFormErrors(prev => ({ ...prev, subjects: '' }));
+  };
+
+  const toggleClass = (classId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedClasses: prev.selectedClasses.includes(classId)
+        ? prev.selectedClasses.filter(id => id !== classId)
+        : [...prev.selectedClasses, classId]
+    }));
+    setFormErrors(prev => ({ ...prev, classes: '' }));
+  };
+
+  const getFilteredClasses = () => {
+    if (!formData.school) return [];
+    return classes.filter(c => c.schoolId === formData.school);
+  };
+
+  const removeSubject = (subjectId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedSubjects: prev.selectedSubjects.filter(id => id !== subjectId)
+    }));
+  };
+
+  const removeClass = (classId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedClasses: prev.selectedClasses.filter(id => id !== classId)
+    }));
   };
 
   const filteredTeachers = teachers.filter(teacher =>
@@ -343,12 +433,86 @@ export default function TeacherManagement() {
                 )}
               </div>
               <div>
-                <Label>Primary Subject</Label>
-                <Input
-                  value={formData.subject}
-                  onChange={(e) => setFormData({...formData, subject: e.target.value})}
-                  placeholder="e.g., Mathematics"
-                />
+                <Label>Subjects *</Label>
+                <div className="border rounded-md p-3 max-h-48 overflow-y-auto">
+                  {subjects.map((subject) => (
+                    <div key={subject.id} className="flex items-center gap-2 py-2">
+                      <Checkbox
+                        id={`subject-${subject.id}`}
+                        checked={formData.selectedSubjects.includes(subject.id)}
+                        onCheckedChange={() => toggleSubject(subject.id)}
+                      />
+                      <label htmlFor={`subject-${subject.id}`} className="text-sm cursor-pointer flex-1">
+                        {subject.icon} {subject.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {formData.selectedSubjects.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {formData.selectedSubjects.map(subjectId => {
+                      const subject = subjects.find(s => s.id === subjectId);
+                      return subject ? (
+                        <Badge key={subjectId} variant="secondary" className="flex items-center gap-1">
+                          {subject.name}
+                          <X 
+                            className="w-3 h-3 cursor-pointer" 
+                            onClick={() => removeSubject(subjectId)}
+                          />
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+                {formErrors.subjects && (
+                  <p className="text-xs text-red-500 mt-1">{formErrors.subjects}</p>
+                )}
+              </div>
+              <div>
+                <Label>Classes *</Label>
+                {!formData.school ? (
+                  <p className="text-sm text-gray-500 py-2">Please select a school first</p>
+                ) : (
+                  <>
+                    <div className="border rounded-md p-3 max-h-48 overflow-y-auto">
+                      {getFilteredClasses().length === 0 ? (
+                        <p className="text-sm text-gray-500 py-2">No classes available for this school</p>
+                      ) : (
+                        getFilteredClasses().map((classItem) => (
+                          <div key={classItem.id} className="flex items-center gap-2 py-2">
+                            <Checkbox
+                              id={`class-${classItem.id}`}
+                              checked={formData.selectedClasses.includes(classItem.id)}
+                              onCheckedChange={() => toggleClass(classItem.id)}
+                            />
+                            <label htmlFor={`class-${classItem.id}`} className="text-sm cursor-pointer flex-1">
+                              {classItem.name} - Grade {classItem.grade} ({classItem.section})
+                            </label>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {formData.selectedClasses.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {formData.selectedClasses.map(classId => {
+                          const classItem = classes.find(c => c.id === classId);
+                          return classItem ? (
+                            <Badge key={classId} variant="secondary" className="flex items-center gap-1">
+                              {classItem.name} - Grade {classItem.grade}
+                              <X 
+                                className="w-3 h-3 cursor-pointer" 
+                                onClick={() => removeClass(classId)}
+                              />
+                            </Badge>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+                {formErrors.classes && (
+                  <p className="text-xs text-red-500 mt-1">{formErrors.classes}</p>
+                )}
               </div>
               <div>
                 <Label>Experience (years)</Label>
