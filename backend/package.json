@@ -1,0 +1,21 @@
+{
+  "name": "engage-learn-backend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
+    "seed:sql": "node scripts/seed-from-sql.mjs",
+    "seed:sql:drop": "node scripts/seed-from-sql.mjs --drop"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "engage-learn-monitor": "file:..",
+    "express": "^4.21.0",
+    "pg": "^8.19.0"
+  }
+}

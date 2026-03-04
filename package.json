@@ -1,0 +1,14 @@
+{
+  "name": "engage-learn-monitor",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "install:all": "npm install --prefix frontend ; npm install --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "test": "npm run test --prefix frontend",
+    "seed:sql": "npm run seed:sql --prefix backend",
+    "seed:sql:drop": "npm run seed:sql:drop --prefix backend"
+  }
+}
