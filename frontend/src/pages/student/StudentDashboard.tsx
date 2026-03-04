@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ArrowRight, TrendingUp, Award, Zap, BookOpen, Target, Star } from 'lucide-react';
 import StudentLayout from '@/components/StudentLayout';
 
@@ -288,4 +288,3 @@ export default function StudentDashboard() {
   );
 }
 
-export default StudentDashboard;
