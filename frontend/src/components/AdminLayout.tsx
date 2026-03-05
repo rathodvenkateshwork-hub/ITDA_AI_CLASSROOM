@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { BarChart3, Calendar, Settings, LogOut, Menu, X } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
+import { Link, useLocation } from 'react-router-dom';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  const router = useRouter();
+  const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -17,37 +16,37 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Dashboard',
       href: '/admin',
       icon: '📊',
-      active: router.pathname === '/admin'
+      active: location.pathname === '/admin'
     },
     {
       name: 'Schools',
       href: '/admin/schools',
       icon: '🏫',
-      active: router.pathname === '/admin/schools'
+      active: location.pathname === '/admin/schools'
     },
     {
       name: 'Teachers',
       href: '/admin/teachers',
       icon: '👨‍🏫',
-      active: router.pathname === '/admin/teachers'
+      active: location.pathname === '/admin/teachers'
     },
     {
       name: 'Materials',
       href: '/admin/materials',
       icon: '📚',
-      active: router.pathname === '/admin/materials'
+      active: location.pathname === '/admin/materials'
     },
     {
       name: 'Quizzes',
       href: '/admin/quizzes',
       icon: '✏️',
-      active: router.pathname === '/admin/quizzes'
+      active: location.pathname === '/admin/quizzes'
     },
     {
       name: 'Activities',
       href: '/admin/activities',
       icon: '🎯',
-      active: router.pathname === '/admin/activities'
+      active: location.pathname === '/admin/activities',
     }
   ];
 
@@ -70,15 +69,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2">
           {navigationItems.map((item) => (
-            <Link key={item.name} href={item.href}>
-              <a className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+            <Link key={item.name} to={item.href} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 item.active
                   ? 'bg-white/20 text-white'
                   : 'text-purple-100 hover:bg-white/10'
               }`}>
                 <span className="text-xl">{item.icon}</span>
                 {isSidebarOpen && <span className="font-medium">{item.name}</span>}
-              </a>
             </Link>
           ))}
         </nav>

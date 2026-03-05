@@ -39,22 +39,31 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'email and password are required' });
+      return res.status(400).json({ error: 'email (or unique ID) and password are required' });
     }
 
-    const student = await Student.findOne({ email: email.toLowerCase() }).lean();
+    const identifier = String(email).trim();
+    // try matching either email or student_unique_id
+    const student = await Student.findOne({
+      $or: [
+        { email: identifier.toLowerCase() },
+        { student_unique_id: identifier }
+      ]
+    }).lean();
+
     if (!student) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Invalid email/ID or password' });
     }
 
     const passwordMatch = await bcrypt.compare(password, student.password_hash || '');
     if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return res.status(401).json({ error: 'Invalid email/ID or password' });
     }
 
     res.json({
       id: student.id,
       email: student.email,
+      student_unique_id: student.student_unique_id,
       name: student.full_name,
       role: 'student',
       token: 'JWT_TOKEN_HERE',

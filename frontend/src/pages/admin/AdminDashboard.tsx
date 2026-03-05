@@ -254,8 +254,23 @@ export default function AdminDashboard() {
                 <button className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg font-medium text-sm hover:shadow-md transition-shadow">
                   + Add School
                 </button>
-                <button className="w-full px-4 py-2 border border-purple-200 text-purple-600 rounded-lg font-medium text-sm hover:bg-purple-50 transition-colors">
+                <button
+                  onClick={() => (window.location.href = "/admin/register/teacher")}
+                  className="w-full px-4 py-2 border border-purple-200 text-purple-600 rounded-lg font-medium text-sm hover:bg-purple-50 transition-colors"
+                >
                   Register Teacher
+                </button>
+                <button
+                  onClick={() => (window.location.href = "/admin/bulk/students")}
+                  className="w-full px-4 py-2 border border-purple-200 text-purple-600 rounded-lg font-medium text-sm hover:bg-purple-50 transition-colors"
+                >
+                  Bulk Upload Students
+                </button>
+                <button
+                  onClick={() => (window.location.href = "/admin/bulk/teachers")}
+                  className="w-full px-4 py-2 border border-purple-200 text-purple-600 rounded-lg font-medium text-sm hover:bg-purple-50 transition-colors"
+                >
+                  Bulk Upload Teachers
                 </button>
               </div>
             </div>

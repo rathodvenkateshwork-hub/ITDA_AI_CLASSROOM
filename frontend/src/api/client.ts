@@ -6,7 +6,7 @@ export interface AllDataResponse {
   schools: Array<{ id: string; name: string; code: string; district: string; mandal?: string; teachers: number; students: number; classes: number; sessionsCompleted: number; activeStatus: boolean }>;
   classes: Array<{ id: string; schoolId: string; name: string; section: string; grade: number; studentCount: number }>;
   teachers: Array<{ id: string; name: string; email: string; schoolId: string; classIds: string[]; subjects: string[] }>;
-  students: Array<{ id: string; name: string; rollNo: number; section?: string; classId: string | null; schoolId: string; score: number }>;
+  students: Array<{ id: string; name: string; rollNo: number; section?: string; classId: string | null; schoolId: string; score: number; student_unique_id?: string }>;
   subjects: Array<{ id: string; name: string; icon: string; grades: number[] }>;
   chapters: Array<{
     id: string;
@@ -62,7 +62,7 @@ async function parseErrorResponse(res: Response): Promise<string> {
   return text || res.statusText;
 }
 
-export async function registerStudent(body: { full_name: string; roll_no?: number; section?: string; school_id: string; class_id?: string; password?: string }): Promise<{ id: string }> {
+export async function registerStudent(body: { full_name: string; roll_no?: number; section?: string; school_id: string; class_id?: string; password?: string }): Promise<{ id: string; student_unique_id?: string }> {
   if (!API_BASE) throw new Error("VITE_API_URL is not set");
   const res = await fetch(`${API_BASE}/api/students`, {
     method: "POST",
@@ -116,6 +116,39 @@ export async function deleteStudent(id: string): Promise<{ deleted: boolean }> {
   if (!API_BASE) throw new Error("VITE_API_URL is not set");
   const res = await fetch(`${API_BASE}/api/students/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function studentLogin(body: { email: string; password?: string }): Promise<{ id: string; email?: string; student_unique_id?: string; name: string; role: string }> {
+  if (!API_BASE) throw new Error("VITE_API_URL is not set");
+  const res = await fetch(`${API_BASE}/api/student/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function studentBulkUpload(students: Array<{ full_name: string; roll_no?: number; section?: string; school_id: string; class_id?: string; password?: string }>): Promise<{ results: Array<any> }> {
+  if (!API_BASE) throw new Error("VITE_API_URL is not set");
+  const res = await fetch(`${API_BASE}/api/students/bulk`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ students }),
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
+  return res.json();
+}
+
+export async function teacherBulkUpload(teachers: Array<{ full_name: string; email: string; school_id: string; password?: string }>): Promise<{ results: Array<any> }> {
+  if (!API_BASE) throw new Error("VITE_API_URL is not set");
+  const res = await fetch(`${API_BASE}/api/teachers/bulk`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ teachers }),
+  });
+  if (!res.ok) throw new Error(await parseErrorResponse(res));
   return res.json();
 }
 

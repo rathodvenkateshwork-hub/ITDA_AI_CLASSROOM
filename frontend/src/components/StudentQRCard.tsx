@@ -5,6 +5,7 @@ import { Download, GraduationCap } from "lucide-react";
 
 interface Student {
   id: string;
+  student_unique_id?: string;
   name: string;
   rollNo: number;
   classId: string;
@@ -93,7 +94,8 @@ const StudentQRCard = ({ student, schoolName, className }: StudentQRCardProps) =
       ctx.fill();
       ctx.fillStyle = "#1a9988";
       ctx.font = "bold 11px monospace";
-      ctx.fillText(`ID: ${student.id}`, 160, 394);
+      const displayId = student.student_unique_id || student.id;
+      ctx.fillText(`ID: ${displayId}`, 160, 394);
 
       // Download
       const link = document.createElement("a");
@@ -107,6 +109,7 @@ const StudentQRCard = ({ student, schoolName, className }: StudentQRCardProps) =
 
   const qrValue = JSON.stringify({
     student_id: student.id,
+    student_unique_id: student.student_unique_id,
     name: student.name,
     roll: student.rollNo,
     class: className,
@@ -147,7 +150,7 @@ const StudentQRCard = ({ student, schoolName, className }: StudentQRCardProps) =
           <p className="text-muted-foreground text-xs">{className}</p>
           <p className="text-muted-foreground text-xs">{schoolName}</p>
           <div className="mt-3 bg-teal-light rounded-lg px-3 py-1.5">
-            <code className="text-xs font-mono text-primary font-medium">ID: {student.id}</code>
+            <code className="text-xs font-mono text-primary font-medium">ID: {student.student_unique_id || student.id}</code>
           </div>
         </div>
       </div>

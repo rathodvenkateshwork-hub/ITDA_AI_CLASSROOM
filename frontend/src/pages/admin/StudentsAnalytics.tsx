@@ -109,7 +109,7 @@ const StudentsAnalytics = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">ID Number</p>
-                  <p className="font-medium text-foreground">{item.student.id}</p>
+                  <p className="font-medium text-foreground">{item.student.student_unique_id || item.student.id}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Quiz</p>

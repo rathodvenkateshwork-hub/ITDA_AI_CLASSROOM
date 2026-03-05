@@ -287,5 +287,3 @@ export default function StudentDashboard() {
     </StudentLayout>
   );
 }
-
-export default StudentDashboard;

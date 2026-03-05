@@ -55,7 +55,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ onClose, schools, clas
     }
     setSubmitting(true);
     try {
-      await registerStudent({
+      const result = await registerStudent({
         full_name,
         roll_no: rollNum,
         section: section.trim(),
@@ -63,6 +63,11 @@ export const StudentForm: React.FC<StudentFormProps> = ({ onClose, schools, clas
         class_id: finalClassId ?? undefined,
         password: password.trim() || undefined,
       });
+      if (result.student_unique_id) {
+        alert(`Student created with unique ID ${result.student_unique_id}`);
+      } else {
+        alert("Student created successfully");
+      }
       onSuccess?.();
       onClose?.();
     } catch (err) {

@@ -12,6 +12,9 @@ const TeacherRegistration: React.FC = () => {
         </CardHeader>
         <div className="p-4">
           <TeacherForm />
+          <p className="text-sm text-right mt-2">
+            <a href="/admin/bulk/teachers" className="text-blue-600 hover:underline">Bulk upload teachers (CSV)</a>
+          </p>
         </div>
       </Card>
     </DashboardLayout>

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { GraduationCap, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { students } from "@/data/demo-data";
-import { adminLogin, teacherLogin } from "@/api/client";
+import { adminLogin, teacherLogin, studentLogin, getApiBase } from "@/api/client";
 
 const Login = () => {
   const [searchParams] = useSearchParams();
@@ -37,9 +37,28 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (role === "student") {
-      const student = students.find(s => s.id === email);
-      login("student", student?.name || "Student", email);
-      navigate("/student");
+      let handled = false;
+      // attempt API login if base url available
+      if (getApiBase()) {
+        try {
+          const data = await studentLogin({ email: email.trim(), password });
+          login("student", data.name, data.student_unique_id || data.id);
+          navigate("/student");
+          handled = true;
+        } catch (err) {
+          // fallthrough to demo fallback below
+        }
+      }
+      if (!handled) {
+        // fallback to local demo data
+        const student = students.find((s) => s.id === email);
+        if (student) {
+          login("student", student.name || "Student", email);
+          navigate("/student");
+        } else {
+          alert("Login failed");
+        }
+      }
     } else if (role === "admin") {
       try {
         const data = await adminLogin({ email: email.trim(), password });
@@ -78,7 +97,7 @@ const Login = () => {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {role === "student"
-                ? "Enter your Student ID to continue"
+                ? "Enter your Student ID or email to continue"
                 : role === "teacher"
                   ? "Sign in with your registered email and password"
                   : "Sign in with your admin email and password"}
@@ -87,14 +106,14 @@ const Login = () => {
           <form onSubmit={handleLogin} className="space-y-4">
 
             <div>
-              <Label htmlFor="email">{role === "student" ? "Student ID" : "Email"}</Label>
+              <Label htmlFor="email">{role === "student" ? "Student ID or Email" : "Email"}</Label>
               <Input
                 id="email"
-                type={role === "student" ? "text" : "email"}
+                type="text"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="mt-1"
-                placeholder={role === "student" ? "e.g. st1" : ""}
+                placeholder={role === "student" ? "e.g. TG-01-001" : ""}
               />
               {role === "student" && (
                 <p className="text-xs text-muted-foreground mt-1">Demo IDs: st1 to st10 (Class 8-A), st11 to st20 (Class 9-B)</p>

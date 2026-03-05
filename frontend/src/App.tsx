@@ -23,6 +23,8 @@ import StudentQuiz from "./pages/student/StudentQuiz";
 import NotFound from "./pages/NotFound";
 import StudentRegistration from "./pages/admin/StudentRegistration";
 import TeacherRegistration from "./pages/admin/TeacherRegistration";
+import StudentBulkUpload from "./pages/admin/StudentBulkUpload";
+import TeacherBulkUpload from "./pages/admin/TeacherBulkUpload";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +51,8 @@ const App = () => (
             <Route path="/admin/students-analytics" element={<StudentsAnalytics />} />
             <Route path="/admin/register/student" element={<StudentRegistration />} />
             <Route path="/admin/register/teacher" element={<TeacherRegistration />} />
+            <Route path="/admin/bulk/students" element={<StudentBulkUpload />} />
+            <Route path="/admin/bulk/teachers" element={<TeacherBulkUpload />} />
             <Route path="/student" element={<StudentDashboard />} />
             <Route path="/student/subjects" element={<StudentSubjects />} />
             <Route path="/student/quiz" element={<StudentQuiz />} />

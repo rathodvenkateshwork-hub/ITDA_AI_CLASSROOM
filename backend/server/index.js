@@ -626,6 +626,15 @@ app.get("/api/all", async (req, res) => {
   }
 });
 
+
+// helper for unique student id
+function generateStudentUniqueId(schoolId, studentId) {
+  // format TG-<school 2 digits>-<student 3 digits>
+  const schoolPart = String(schoolId).padStart(2, "0");
+  const studentPart = String(studentId).padStart(3, "0");
+  return `TG-${schoolPart}-${studentPart}`;
+}
+
 app.post("/api/students", async (req, res) => {
   const { full_name, roll_no, section, school_id, class_id, password } = req.body || {};
   if (!full_name || !school_id) {
@@ -637,6 +646,7 @@ app.post("/api/students", async (req, res) => {
   }
   try {
     const studentId = await getNextId("students");
+    const uniqueId = generateStudentUniqueId(school_id, studentId);
     await Student.create({
       id: studentId,
       full_name: String(full_name).trim(),
@@ -644,17 +654,19 @@ app.post("/api/students", async (req, res) => {
       section: section ? String(section).trim() : null,
       school_id: toStoredId(school_id),
       password_hash: passwordHash,
+      student_unique_id: uniqueId,
     });
     if (class_id && studentId) {
       const enrollmentId = await getNextId("enrollments");
       await Enrollment.create({ id: enrollmentId, student_id: studentId, class_id: toStoredId(class_id), academic_year: "2025-26" }).catch(() => {});
     }
-    res.status(201).json({ id: String(studentId), full_name: String(full_name).trim(), school_id: String(school_id), class_id: class_id ? String(class_id) : null });
+    res.status(201).json({ id: String(studentId), student_unique_id: uniqueId, full_name: String(full_name).trim(), school_id: String(school_id), class_id: class_id ? String(class_id) : null });
   } catch (err) {
     console.error("POST /api/students error:", err);
     res.status(500).json({ error: String(err.message) });
   }
 });
+
 
 app.post("/api/teachers", async (req, res) => {
   const { full_name, email, school_id, password } = req.body || {};
@@ -680,6 +692,80 @@ app.post("/api/teachers", async (req, res) => {
     console.error("POST /api/teachers error:", err);
     res.status(500).json({ error: String(err.message) });
   }
+});
+
+// bulk create for students
+app.post("/api/students/bulk", async (req, res) => {
+  const { students: items } = req.body || {};
+  if (!Array.isArray(items)) {
+    return res.status(400).json({ error: "students array required" });
+  }
+  const results = [];
+  for (const item of items) {
+    try {
+      const { full_name, roll_no, section, school_id, class_id, password } = item || {};
+      if (!full_name || !school_id) {
+        throw new Error("full_name and school_id are required");
+      }
+      let passwordHash = null;
+      if (password && String(password).trim()) {
+        passwordHash = await bcrypt.hash(String(password).trim(), 10);
+      }
+      const studentId = await getNextId("students");
+      const uniqueId = generateStudentUniqueId(school_id, studentId);
+      await Student.create({
+        id: studentId,
+        full_name: String(full_name).trim(),
+        roll_no: roll_no != null ? Number(roll_no) : 0,
+        section: section ? String(section).trim() : null,
+        school_id: toStoredId(school_id),
+        password_hash: passwordHash,
+        student_unique_id: uniqueId,
+      });
+      if (class_id && studentId) {
+        const enrollmentId = await getNextId("enrollments");
+        await Enrollment.create({ id: enrollmentId, student_id: studentId, class_id: toStoredId(class_id), academic_year: "2025-26" }).catch(() => {});
+      }
+      results.push({ success: true, id: String(studentId), student_unique_id: uniqueId });
+    } catch (err) {
+      results.push({ success: false, error: String(err?.message || err), data: item });
+    }
+  }
+  res.json({ results });
+});
+
+// bulk create for teachers
+app.post("/api/teachers/bulk", async (req, res) => {
+  const { teachers: items } = req.body || {};
+  if (!Array.isArray(items)) {
+    return res.status(400).json({ error: "teachers array required" });
+  }
+  const results = [];
+  for (const item of items) {
+    try {
+      const { full_name, email, school_id, password } = item || {};
+      if (!full_name || !email || !school_id) {
+        throw new Error("full_name, email and school_id are required");
+      }
+      const emailVal = String(email).trim();
+      let passwordHash = null;
+      if (password && String(password).trim()) {
+        passwordHash = await bcrypt.hash(String(password).trim(), 10);
+      }
+      const teacherId = await getNextId("teachers");
+      await Teacher.create({
+        id: teacherId,
+        full_name: String(full_name).trim(),
+        email: emailVal,
+        school_id: toStoredId(school_id),
+        password_hash: passwordHash,
+      });
+      results.push({ success: true, id: String(teacherId) });
+    } catch (err) {
+      results.push({ success: false, error: String(err?.message || err), data: item });
+    }
+  }
+  res.json({ results });
 });
 
 app.put("/api/teachers/:id", async (req, res) => {
