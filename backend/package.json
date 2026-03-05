@@ -14,7 +14,6 @@
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "engage-learn-monitor": "file:..",
     "express": "^4.21.0",
     "pg": "^8.19.0"
   }
