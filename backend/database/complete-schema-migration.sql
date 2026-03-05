@@ -186,9 +186,9 @@ CREATE TABLE IF NOT EXISTS study_materials (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_study_materials_chapter ON study_materials(chapter_id);
-CREATE INDEX idx_study_materials_topic ON study_materials(topic_id);
-CREATE INDEX idx_study_materials_type ON study_materials(type);
+CREATE INDEX IF NOT EXISTS idx_study_materials_chapter ON study_materials(chapter_id);
+CREATE INDEX IF NOT EXISTS idx_study_materials_topic ON study_materials(topic_id);
+CREATE INDEX IF NOT EXISTS idx_study_materials_type ON study_materials(type);
 
 -- 2. QUIZ QUESTIONS TABLE
 CREATE TABLE IF NOT EXISTS quiz_questions (
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS quiz_questions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_quiz_questions_quiz ON quiz_questions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_questions_quiz ON quiz_questions(quiz_id);
 
 -- 3. QUIZ SUBMISSIONS TABLE
 CREATE TABLE IF NOT EXISTS quiz_submissions (
@@ -220,8 +220,8 @@ CREATE TABLE IF NOT EXISTS quiz_submissions (
   attempt_number INTEGER DEFAULT 1
 );
 
-CREATE INDEX idx_quiz_submissions_student ON quiz_submissions(student_id);
-CREATE INDEX idx_quiz_submissions_quiz ON quiz_submissions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_submissions_student ON quiz_submissions(student_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_submissions_quiz ON quiz_submissions(quiz_id);
 
 -- 4. QUIZ ANSWERS TABLE
 CREATE TABLE IF NOT EXISTS quiz_answers (
@@ -250,9 +250,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_sessions_teacher ON sessions(teacher_id);
-CREATE INDEX idx_sessions_class ON sessions(class_id);
-CREATE INDEX idx_sessions_date ON sessions(session_date);
+CREATE INDEX IF NOT EXISTS idx_sessions_teacher ON sessions(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_class ON sessions(class_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(session_date);
 
 -- 6. SESSION ATTENDANCE TABLE
 CREATE TABLE IF NOT EXISTS session_attendance (
@@ -263,8 +263,8 @@ CREATE TABLE IF NOT EXISTS session_attendance (
   marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_session_attendance_session ON session_attendance(session_id);
-CREATE INDEX idx_session_attendance_student ON session_attendance(student_id);
+CREATE INDEX IF NOT EXISTS idx_session_attendance_session ON session_attendance(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_attendance_student ON session_attendance(student_id);
 
 -- 7. BADGES TABLE
 CREATE TABLE IF NOT EXISTS badges (
@@ -286,7 +286,7 @@ CREATE TABLE IF NOT EXISTS student_badges (
   UNIQUE(student_id, badge_id)
 );
 
-CREATE INDEX idx_student_badges_student ON student_badges(student_id);
+CREATE INDEX IF NOT EXISTS idx_student_badges_student ON student_badges(student_id);
 
 -- 9. CERTIFICATES TABLE
 CREATE TABLE IF NOT EXISTS certificates (
@@ -300,7 +300,7 @@ CREATE TABLE IF NOT EXISTS certificates (
   certificate_file_url TEXT
 );
 
-CREATE INDEX idx_certificates_student ON certificates(student_id);
+CREATE INDEX IF NOT EXISTS idx_certificates_student ON certificates(student_id);
 
 -- 10. ACTIVITIES TABLE
 CREATE TABLE IF NOT EXISTS activities (
@@ -319,9 +319,9 @@ CREATE TABLE IF NOT EXISTS activities (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_activities_school ON activities(school_id);
-CREATE INDEX idx_activities_date ON activities(event_date);
-CREATE INDEX idx_activities_category ON activities(category);
+CREATE INDEX IF NOT EXISTS idx_activities_school ON activities(school_id);
+CREATE INDEX IF NOT EXISTS idx_activities_date ON activities(event_date);
+CREATE INDEX IF NOT EXISTS idx_activities_category ON activities(category);
 
 -- 11. ACTIVITY REGISTRATIONS TABLE
 CREATE TABLE IF NOT EXISTS activity_registrations (
@@ -334,8 +334,8 @@ CREATE TABLE IF NOT EXISTS activity_registrations (
   UNIQUE(activity_id, student_id)
 );
 
-CREATE INDEX idx_activity_registrations_activity ON activity_registrations(activity_id);
-CREATE INDEX idx_activity_registrations_student ON activity_registrations(student_id);
+CREATE INDEX IF NOT EXISTS idx_activity_registrations_activity ON activity_registrations(activity_id);
+CREATE INDEX IF NOT EXISTS idx_activity_registrations_student ON activity_registrations(student_id);
 
 -- 12. WEAK TOPICS TABLE
 CREATE TABLE IF NOT EXISTS weak_topics (
@@ -346,7 +346,7 @@ CREATE TABLE IF NOT EXISTS weak_topics (
   last_assessment TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_weak_topics_student ON weak_topics(student_id);
+CREATE INDEX IF NOT EXISTS idx_weak_topics_student ON weak_topics(student_id);
 
 -- 13. STUDENT PERFORMANCE TABLE
 CREATE TABLE IF NOT EXISTS student_performance (
@@ -360,8 +360,8 @@ CREATE TABLE IF NOT EXISTS student_performance (
   overall_percentage DECIMAL(5,2)
 );
 
-CREATE INDEX idx_student_performance_student ON student_performance(student_id);
-CREATE INDEX idx_student_performance_subject ON student_performance(subject_id);
+CREATE INDEX IF NOT EXISTS idx_student_performance_student ON student_performance(student_id);
+CREATE INDEX IF NOT EXISTS idx_student_performance_subject ON student_performance(subject_id);
 
 -- 14. TEACHER ASSIGNMENT TABLE
 CREATE TABLE IF NOT EXISTS teacher_subject_assignment (
@@ -374,8 +374,8 @@ CREATE TABLE IF NOT EXISTS teacher_subject_assignment (
   UNIQUE(teacher_id, class_id, subject_id)
 );
 
-CREATE INDEX idx_teacher_assignment_teacher ON teacher_subject_assignment(teacher_id);
-CREATE INDEX idx_teacher_assignment_class ON teacher_subject_assignment(class_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_assignment_teacher ON teacher_subject_assignment(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_assignment_class ON teacher_subject_assignment(class_id);
 
 -- 15. CHAPTER SYLLABUS PROGRESS TABLE
 CREATE TABLE IF NOT EXISTS chapter_progress (
@@ -389,8 +389,8 @@ CREATE TABLE IF NOT EXISTS chapter_progress (
   last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_chapter_progress_teacher ON chapter_progress(teacher_id);
-CREATE INDEX idx_chapter_progress_chapter ON chapter_progress(chapter_id);
+CREATE INDEX IF NOT EXISTS idx_chapter_progress_teacher ON chapter_progress(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_chapter_progress_chapter ON chapter_progress(chapter_id);
 
 -- 16. ACTIVITY LOGS TABLE (for admin tracking)
 CREATE TABLE IF NOT EXISTS activity_logs (
@@ -404,8 +404,8 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   ip_address VARCHAR(45)
 );
 
-CREATE INDEX idx_activity_logs_user ON activity_logs(user_id);
-CREATE INDEX idx_activity_logs_timestamp ON activity_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp);
 
 -- 17. CLASS STATUS TABLE
 CREATE TABLE IF NOT EXISTS class_status (
@@ -418,8 +418,8 @@ CREATE TABLE IF NOT EXISTS class_status (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_class_status_class ON class_status(class_id);
-CREATE INDEX idx_class_status_date ON class_status(status_date);
+CREATE INDEX IF NOT EXISTS idx_class_status_class ON class_status(class_id);
+CREATE INDEX IF NOT EXISTS idx_class_status_date ON class_status(status_date);
 
 -- 18. COURSE COMPLETION TABLE
 CREATE TABLE IF NOT EXISTS course_completion (
@@ -433,7 +433,7 @@ CREATE TABLE IF NOT EXISTS course_completion (
   remarks TEXT
 );
 
-CREATE INDEX idx_course_completion_student ON course_completion(student_id);
+CREATE INDEX IF NOT EXISTS idx_course_completion_student ON course_completion(student_id);
 
 -- 19. STUDENT QR CARDS TABLE
 CREATE TABLE IF NOT EXISTS student_qr_cards (
@@ -444,7 +444,7 @@ CREATE TABLE IF NOT EXISTS student_qr_cards (
   generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_qr_cards_student ON student_qr_cards(student_id);
+CREATE INDEX IF NOT EXISTS idx_qr_cards_student ON student_qr_cards(student_id);
 
 -- 20. TEACHER QR CARDS TABLE
 CREATE TABLE IF NOT EXISTS teacher_qr_cards (
@@ -455,7 +455,7 @@ CREATE TABLE IF NOT EXISTS teacher_qr_cards (
   generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_teacher_qr_cards_teacher ON teacher_qr_cards(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_qr_cards_teacher ON teacher_qr_cards(teacher_id);
 
 -- ============================================================================
 -- MIGRATION COMPLETE

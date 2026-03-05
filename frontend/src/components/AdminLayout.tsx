@@ -47,6 +47,30 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       href: '/admin/activities',
       icon: '🎯',
       active: location.pathname === '/admin/activities',
+    },
+    {
+      name: 'Study Materials',
+      href: '/admin/study-materials',
+      icon: '📖',
+      active: location.pathname === '/admin/study-materials',
+    },
+    {
+      name: 'Register Student',
+      href: '/admin/register/student',
+      icon: '👤',
+      active: location.pathname === '/admin/register/student',
+    },
+    {
+      name: 'Register Teacher',
+      href: '/admin/register/teacher',
+      icon: '👨‍🏫',
+      active: location.pathname === '/admin/register/teacher',
+    },
+    {
+      name: 'Analytics',
+      href: '/admin/schools-analytics',
+      icon: '📈',
+      active: location.pathname.includes('analytics'),
     }
   ];
 

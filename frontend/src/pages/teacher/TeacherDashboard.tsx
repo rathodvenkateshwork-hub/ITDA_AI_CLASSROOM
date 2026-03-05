@@ -506,6 +506,9 @@ const TeacherDashboard = () => {
                     className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-secondary transition-colors text-left"
                     onClick={() => {
                       if (tool.label === "AI Chatbot") setAiOpen(true);
+                      if (tool.label === "AI PPT Generator" || tool.label === "YouTube Recommendations") {
+                        navigate("/teacher/interactive-teaching");
+                      }
                       if (tool.label === "Launch Quiz") {
                         setSessionQuizDone(true);
                         navigate("/teacher/quiz");

@@ -6,6 +6,8 @@ import { ensureSupabase, getNextId, makeLooseModel } from "./supabase-model.js";
 import adminRoutes from "../routes/admin.js";
 import teacherRoutes from "../routes/teacher.js";
 import studentRoutes from "../routes/student.js";
+import materialsRoutes from "../routes/materials.js";
+import intelligentRagRoutes from "../routes/intelligent-rag.js";
 
 const app = express();
 app.use(cors());
@@ -1106,6 +1108,12 @@ app.use("/api/teacher", teacherRoutes);
 
 // Student Portal Routes
 app.use("/api/student", studentRoutes);
+
+// Materials Routes
+app.use("/api/materials", materialsRoutes);
+
+// RAG & Interactive Teaching Routes
+app.use("/api/rag", intelligentRagRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
