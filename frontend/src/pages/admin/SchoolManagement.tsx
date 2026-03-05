@@ -12,7 +12,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
-import AdminLayout from '@/components/AdminLayout';
 
 const mockSchools = [
   {
@@ -88,9 +87,9 @@ export default function SchoolManagement() {
   };
 
   return (
-    <AdminLayout>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">School Management</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">School Management</h1>
         <p className="text-gray-600">View, add, and manage school institutions</p>
       </div>
 
@@ -248,6 +247,6 @@ export default function SchoolManagement() {
           </Card>
         </div>
       )}
-    </AdminLayout>
+    </div>
   );
 }

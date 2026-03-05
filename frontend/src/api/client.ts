@@ -105,6 +105,27 @@ export async function deleteSchool(id: string): Promise<{ deleted: boolean }> {
   return res.json();
 }
 
+export async function createClass(body: { school_id: string; name: string; section?: string; grade: number }): Promise<{ id: string; schoolId: string; name: string; section: string; grade: number; studentCount: number }> {
+  if (!API_BASE) throw new Error("VITE_API_URL is not set");
+  const res = await fetch(`${API_BASE}/api/classes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function updateClass(id: string, body: { school_id?: string; name?: string; section?: string; grade?: number; student_count?: number }): Promise<{ id: string; updated: boolean }> {
+  if (!API_BASE) throw new Error("VITE_API_URL is not set");
+  const res = await fetch(`${API_BASE}/api/classes/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function deleteClass(id: string): Promise<{ deleted: boolean }> {
+  if (!API_BASE) throw new Error("VITE_API_URL is not set");
+  const res = await fetch(`${API_BASE}/api/classes/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
 export async function updateStudent(id: string, body: { full_name?: string; roll_no?: number; section?: string; school_id?: string; password?: string }): Promise<{ id: string; updated: boolean }> {
   if (!API_BASE) throw new Error("VITE_API_URL is not set");
   const res = await fetch(`${API_BASE}/api/students/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
