@@ -2,10 +2,13 @@
  * Materials Routes
  * All endpoints for managing learning materials, textbooks, videos, and resources
  * Includes admin upload, teacher assignment, and student access
+ * Auto-triggers RAG pipeline (chunk + embed) on material creation
  */
 
 import express from 'express';
 import { makeLooseModel } from '../server/supabase-model.js';
+import { splitTextIntoChunks, cleanText, validateChunks } from '../services/material-chunking.js';
+import { generateEmbedding } from '../services/content-generation.js';
 
 const router = express.Router();
 
@@ -86,7 +89,35 @@ router.post('/', async (req, res) => {
       school_id: school_id || null,
     });
 
-    res.status(201).json(material);
+    // AUTO-TRIGGER RAG PIPELINE: chunk + embed the description/content
+    let chunksCreated = 0;
+    const textContent = description || title || '';
+    if (textContent.trim().length > 20) {
+      try {
+        const MaterialChunk = makeLooseModel('MaterialChunk', 'material_chunks');
+        const cleaned = cleanText(textContent);
+        const rawChunks = splitTextIntoChunks(cleaned, 1000, 200);
+        const chunks = validateChunks(rawChunks).length > 0 ? validateChunks(rawChunks) : rawChunks;
+
+        for (let i = 0; i < chunks.length; i++) {
+          const embeddingVec = generateEmbedding(chunks[i].text);
+          await MaterialChunk.create({
+            material_id: material.id,
+            chapter_id: material.chapter_id || null,
+            topic_id: material.topic_id || null,
+            chunk_number: i + 1,
+            chunk_text: chunks[i].text,
+            token_count: chunks[i].token_count,
+            chunk_metadata: JSON.stringify({ embedding_256: embeddingVec }),
+          });
+          chunksCreated++;
+        }
+      } catch (chunkErr) {
+        console.warn('Auto-chunking failed (non-blocking):', chunkErr.message);
+      }
+    }
+
+    res.status(201).json({ ...material, chunks_created: chunksCreated });
   } catch (err) {
     console.error('POST /api/materials error:', err);
     res.status(500).json({ error: 'Failed to create material' });

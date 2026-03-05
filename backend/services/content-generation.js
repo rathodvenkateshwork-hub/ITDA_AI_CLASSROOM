@@ -1,454 +1,380 @@
 /**
  * Content Generation Service
- * Generates PPTs, quizzes, and content using LLM with RAG context
+ * Generates PPTs, quizzes, summaries and recommendations using Claude (Anthropic) with RAG context
+ * 
+ * STRICT SUBJECT GUARDRAILS:
+ * - Every prompt is scoped to the specific subject, chapter, and grade
+ * - System prompt enforces curriculum-only responses
+ * - Any off-topic content is rejected at the prompt level
  */
+
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 /**
- * Generate PPT structure using LLM
+ * Build the system prompt that enforces strict subject boundaries
  */
-export async function generatePPTStructure(
-  classId,
-  subjectId,
-  chapterId,
-  contextChunks,
-  title = 'Generated Presentation'
-) {
-  try {
-    const prompt = buildPPTPrompt(classId, subjectId, chapterId, contextChunks, title);
+function buildSystemPrompt(subjectName, chapterName, grade) {
+  return `You are an educational content generator for ITDA (Integrated Tribal Development Agency) classrooms in Telangana, India.
 
-    // In production, call OpenAI or similar
-    // const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     model: 'gpt-4',
-    //     messages: [{ role: 'user', content: prompt }],
-    //     temperature: 0.7,
-    //     max_tokens: 2000,
-    //   }),
-    // });
-    // const data = await response.json();
-
-    // Mock response for demo
-    const pptStructure = {
-      title,
-      slides: [
-        {
-          slide_number: 1,
-          type: 'title',
-          title,
-          subtitle: `Class ${classId} - Subject ${subjectId}`,
-        },
-        {
-          slide_number: 2,
-          type: 'bullet_points',
-          title: 'Key Concepts',
-          content: [
-            'Concept 1: Introduction',
-            'Concept 2: Main Theory',
-            'Concept 3: Applications',
-          ],
-        },
-        {
-          slide_number: 3,
-          type: 'bullet_points',
-          title: 'Deep Dive',
-          content: ['Detailed explanation of concepts', 'Real-world examples', 'Practice problems'],
-        },
-        {
-          slide_number: 4,
-          type: 'image',
-          title: 'Visual Representation',
-          image_description: 'Diagram explaining the main concept',
-        },
-        {
-          slide_number: 5,
-          type: 'bullet_points',
-          title: 'Activities & Exercises',
-          content: ['Group activity 1', 'Individual task', 'Discussion questions'],
-        },
-      ],
-    };
-
-    return pptStructure;
-  } catch (err) {
-    console.error('Error generating PPT structure:', err);
-    throw err;
-  }
+STRICT RULES — YOU MUST FOLLOW THESE WITHOUT EXCEPTION:
+1. You MUST ONLY generate content related to the subject: "${subjectName}"
+2. You MUST ONLY cover the chapter/topic: "${chapterName}"
+3. You MUST NOT discuss, reference, or generate content about ANY other subject, chapter, or topic — even if the user asks.
+4. Your content must be appropriate for Grade ${grade} students studying under TGSCERT (Telangana State Council of Educational Research and Training) curriculum.
+5. Keep language simple, clear, and educational.
+6. If the provided context chunks are empty or insufficient, generate content based on standard TGSCERT curriculum knowledge for the given subject and chapter.
+7. All examples must relate to the subject and chapter only.
+8. Do NOT include any disclaimers about being an AI. Just produce the educational content.
+9. Respond ONLY with valid JSON as specified in the user prompt. No markdown code fences, no extra text outside JSON.`;
 }
 
 /**
- * Generate quiz questions using LLM
+ * Call Claude API
  */
-export async function generateQuizQuestions(
-  classId,
-  subjectId,
-  chapterId,
-  contextChunks,
-  numQuestions = 10,
-  difficulty = 'intermediate'
-) {
-  try {
-    const prompt = buildQuizPrompt(classId, subjectId, chapterId, contextChunks, numQuestions, difficulty);
-
-    // In production, call LLM
-    // const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     model: 'gpt-4',
-    //     messages: [{ role: 'user', content: prompt }],
-    //     temperature: 0.7,
-    //     max_tokens: 3000,
-    //   }),
-    // });
-    // const data = await response.json();
-
-    // Mock response for demo
-    const questions = [
-      {
-        question_number: 1,
-        question_text: 'What is the main concept covered in this chapter?',
-        question_type: 'multiple_choice',
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
-        correct_answer: 'Option A',
-        difficulty,
-        marks: 1,
-      },
-      {
-        question_number: 2,
-        question_text: 'Explain the application of this concept in real life.',
-        question_type: 'short_answer',
-        difficulty,
-        marks: 2,
-      },
-      {
-        question_number: 3,
-        question_text: 'Which of the following is NOT a characteristic?',
-        question_type: 'multiple_choice',
-        options: ['A', 'B', 'C', 'D'],
-        correct_answer: 'D',
-        difficulty,
-        marks: 1,
-      },
-    ];
-
-    return {
-      quiz_title: `Quiz - Class ${classId} ${subjectId}`,
-      total_questions: questions.length,
-      duration_minutes: 30,
-      difficulty,
-      questions,
-    };
-  } catch (err) {
-    console.error('Error generating quiz questions:', err);
-    throw err;
+async function callClaude(systemPrompt, userPrompt, maxTokens = 4000) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY is not set in environment variables');
   }
+
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text().catch(() => response.statusText);
+    throw new Error(`Claude API error (${response.status}): ${errBody}`);
+  }
+
+  const data = await response.json();
+  const text = data.content?.[0]?.text;
+  if (!text) throw new Error('Empty response from Claude API');
+  return text;
 }
 
 /**
- * Generate study summary using LLM
+ * Parse JSON from Claude response (handles markdown code fences)
  */
-export async function generateStudySummary(
-  classId,
-  subjectId,
-  chapterId,
-  contextChunks
-) {
-  try {
-    const prompt = buildSummaryPrompt(classId, subjectId, chapterId, contextChunks);
-
-    // In production, call LLM
-    // const response = await fetch('https://api.openai.com/v1/chat/completions', {...});
-
-    // Mock response
-    const summary = {
-      title: `Summary - Class ${classId}`,
-      key_concepts: [
-        { concept: 'Concept 1', explanation: 'Short explanation' },
-        { concept: 'Concept 2', explanation: 'Short explanation' },
-        { concept: 'Concept 3', explanation: 'Short explanation' },
-      ],
-      key_formulas: [
-        { formula: 'Formula 1', description: 'What it represents' },
-      ],
-      important_notes: [
-        'Note 1: Important detail',
-        'Note 2: Common mistake to avoid',
-        'Note 3: Real-world application',
-      ],
-      must_know: [
-        'Crucial definition 1',
-        'Crucial definition 2',
-      ],
-    };
-
-    return summary;
-  } catch (err) {
-    console.error('Error generating summary:', err);
-    throw err;
+function parseClaudeJSON(text) {
+  let cleaned = text.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
   }
+  return JSON.parse(cleaned);
 }
 
 /**
- * Get YouTube recommendations using LLM
+ * Build context string from chunks
  */
-export async function getYouTubeRecommendations(
-  classId,
-  subjectId,
-  chapterId,
-  contextChunks
-) {
-  try {
-    const prompt = buildYouTubePrompt(classId, subjectId, chapterId, contextChunks);
-
-    // In production:
-    // 1. Use LLM to generate search queries
-    // 2. Call YouTube API with those queries
-    // 3. Filter and rank results
-
-    // Mock recommendations
-    const recommendations = [
-      {
-        title: 'Understanding Core Concepts',
-        url: 'https://youtube.com/watch?v=example1',
-        channel: 'Educational Channel',
-        duration: '12:34',
-        views: '1.2M',
-        relevance_score: 0.95,
-      },
-      {
-        title: 'Real-World Applications',
-        url: 'https://youtube.com/watch?v=example2',
-        channel: 'Science Simplified',
-        duration: '15:22',
-        views: '850K',
-        relevance_score: 0.88,
-      },
-      {
-        title: 'Practice Problems & Solutions',
-        url: 'https://youtube.com/watch?v=example3',
-        channel: 'Math Problems',
-        duration: '25:45',
-        views: '2.1M',
-        relevance_score: 0.82,
-      },
-    ];
-
-    return {
-      class_id: classId,
-      subject_id: subjectId,
-      recommendations,
-    };
-  } catch (err) {
-    console.error('Error getting YouTube recommendations:', err);
-    throw err;
-  }
-}
-
-/**
- * Generate worksheet using LLM
- */
-export async function generateWorksheet(
-  classId,
-  subjectId,
-  chapterId,
-  contextChunks,
-  numQuestions = 15
-) {
-  try {
-    const questions = generateWorksheetQuestions(contextChunks, numQuestions);
-
-    const worksheet = {
-      title: `Worksheet - Class ${classId}`,
-      instructions: 'Answer all questions. Show your work where required.',
-      total_questions: numQuestions,
-      questions,
-      difficulty: 'mixed',
-    };
-
-    return worksheet;
-  } catch (err) {
-    console.error('Error generating worksheet:', err);
-    throw err;
-  }
+function buildContext(contextChunks) {
+  if (!contextChunks || contextChunks.length === 0) return 'No specific material context provided. Use standard curriculum knowledge.';
+  return contextChunks.map((chunk, i) => `[${i + 1}] ${chunk.chunk_text || chunk.text || ''}`).join('\n\n');
 }
 
 // ============================================
-// HELPER FUNCTIONS - PROMPT BUILDERS
+// CONTENT GENERATION FUNCTIONS
 // ============================================
 
-function buildPPTPrompt(classId, subjectId, chapterId, contextChunks, title) {
-  return `
-Create a comprehensive PowerPoint presentation for Class ${classId}, Subject ${subjectId}.
+/**
+ * Generate PPT structure using Claude
+ */
+export async function generatePPTStructure(subjectName, chapterName, grade, contextChunks, title = 'Generated Presentation') {
+  const systemPrompt = buildSystemPrompt(subjectName, chapterName, grade);
+  const context = buildContext(contextChunks);
+
+  const userPrompt = `Create a detailed PowerPoint presentation structure for teaching "${chapterName}" in ${subjectName} to Grade ${grade} students.
 
 Title: ${title}
 
-Based on the following educational content, create a structured PPT outline with:
-- Opening/Title slide
-- 2-3 slides on key concepts
-- 1 slide on real-world applications
-- 1 slide on common misconceptions
-- Exercises/Activities slide
-- Summary slide
+MATERIAL CONTEXT:
+${context}
 
-Content Context:
-${contextChunks.map((chunk, i) => `${i + 1}. ${chunk.chunk_text}`).join('\n')}
-
-Return a JSON structure with slide number, type, title, and content for each slide.
-  `;
+Generate a JSON object with this exact structure:
+{
+  "title": "presentation title",
+  "slides": [
+    {
+      "slide_number": 1,
+      "type": "title",
+      "title": "...",
+      "subtitle": "..."
+    },
+    {
+      "slide_number": 2,
+      "type": "bullet_points",
+      "title": "Key Concepts",
+      "content": ["point 1", "point 2", "point 3"]
+    }
+  ]
 }
 
-function buildQuizPrompt(classId, subjectId, chapterId, contextChunks, numQuestions, difficulty) {
-  return `
-Generate ${numQuestions} quiz questions for Class ${classId}, Subject ${subjectId}.
+Requirements:
+- Create 8-12 slides total
+- Start with a title slide
+- Include 2-3 "Key Concepts" slides with bullet points from the chapter
+- Include 1 "Definitions" slide with important terms
+- Include 1-2 "Examples" slides with worked examples from the chapter
+- Include 1 "Activity" slide with a classroom activity
+- Include 1 "Common Mistakes" slide
+- End with a "Summary" slide
+- ALL content must be strictly about ${subjectName} — ${chapterName} only
+- Use language suitable for Grade ${grade} students`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 4000);
+  return parseClaudeJSON(raw);
+}
+
+/**
+ * Generate quiz questions using Claude
+ */
+export async function generateQuizQuestions(subjectName, chapterName, grade, contextChunks, numQuestions = 10, difficulty = 'intermediate') {
+  const systemPrompt = buildSystemPrompt(subjectName, chapterName, grade);
+  const context = buildContext(contextChunks);
+
+  const mcqCount = Math.ceil(numQuestions * 0.5);
+  const shortCount = Math.ceil(numQuestions * 0.3);
+  const tfCount = numQuestions - mcqCount - shortCount;
+
+  const userPrompt = `Generate exactly ${numQuestions} quiz questions for "${chapterName}" in ${subjectName} for Grade ${grade} students.
 
 Difficulty Level: ${difficulty}
 
-Mix of:
-- ${Math.ceil(numQuestions * 0.4)} Multiple choice questions
-- ${Math.ceil(numQuestions * 0.4)} Short answer questions
-- ${Math.floor(numQuestions * 0.2)} True/False questions
+MATERIAL CONTEXT:
+${context}
 
-Based on:
-${contextChunks.map((chunk, i) => `${i + 1}. ${chunk.chunk_text}`).join('\n')}
+Question mix:
+- ${mcqCount} Multiple Choice Questions (4 options each)
+- ${shortCount} Short Answer Questions
+- ${tfCount} True/False Questions
 
-Return JSON with: question_number, question_text, question_type, options (if MC), correct_answer, marks.
-  `;
-}
-
-function buildSummaryPrompt(classId, subjectId, chapterId, contextChunks) {
-  return `
-Create a concise study summary for Class ${classId}, Subject ${subjectId}.
-
-Based on:
-${contextChunks.map((c) => c.chunk_text).join('\n')}
-
-Include:
-1. Key concepts with brief explanations
-2. Important formulas (if applicable)
-3. Common misconceptions to avoid
-4. Real-world applications
-5. Must-know definitions
-
-Format as JSON with structured sections.
-  `;
-}
-
-function buildYouTubePrompt(classId, subjectId, chapterId, contextChunks) {
-  return `
-Suggest the best YouTube videos and online resources for Class ${classId}, Subject ${subjectId}.
-
-Context: ${contextChunks.map((c) => c.chunk_text).join(' ')}
-
-Suggest videos that:
-1. Explain core concepts clearly
-2. Show real-world applications
-3. Include practice problems
-4. Have high-quality production
-
-Return a list of recommended videos with descriptions.
-  `;
-}
-
-function generateWorksheetQuestions(contextChunks, numQuestions) {
-  const questions = [];
-  for (let i = 1; i <= numQuestions; i++) {
-    questions.push({
-      question_number: i,
-      question_text: `Question ${i}: Based on the lesson content, answer this question.`,
-      question_type: i % 3 === 0 ? 'long_answer' : 'short_answer',
-      marks: i % 3 === 0 ? 5 : 2,
-    });
-  }
-  return questions;
-}
-
-// ============================================
-// EMBEDDING SERVICE FUNCTIONS
-// ============================================
-
-/**
- * Generate embedding for text using OpenAI
- */
-export async function generateEmbedding(text, model = 'text-embedding-3-small') {
-  try {
-    // In production:
-    // const response = await fetch('https://api.openai.com/v1/embeddings', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     model,
-    //     input: text,
-    //   }),
-    // });
-    // const data = await response.json();
-    // return data.data[0].embedding;
-
-    // Mock embedding for demo
-    return Array(1536)
-      .fill(0)
-      .map(() => Math.random() * 2 - 1);
-  } catch (err) {
-    console.error('Error generating embedding:', err);
-    throw err;
-  }
-}
-
-/**
- * Batch generate embeddings for multiple texts
- */
-export async function batchGenerateEmbeddings(texts, model = 'text-embedding-3-small') {
-  try {
-    const embeddings = [];
-    for (const text of texts) {
-      const embedding = await generateEmbedding(text, model);
-      embeddings.push(embedding);
+Return a JSON object with this exact structure:
+{
+  "quiz_title": "Quiz: ${chapterName}",
+  "total_questions": ${numQuestions},
+  "duration_minutes": ${numQuestions * 2},
+  "difficulty": "${difficulty}",
+  "questions": [
+    {
+      "question_number": 1,
+      "question_text": "...",
+      "question_type": "multiple_choice",
+      "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+      "correct_answer": "A) ...",
+      "explanation": "brief explanation",
+      "difficulty": "${difficulty}",
+      "marks": 1
     }
-    return embeddings;
-  } catch (err) {
-    console.error('Error batch generating embeddings:', err);
-    throw err;
+  ]
+}
+
+CRITICAL: Every question MUST be about ${subjectName} — ${chapterName}. No general knowledge or off-topic questions.`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 5000);
+  return parseClaudeJSON(raw);
+}
+
+/**
+ * Generate study summary using Claude
+ */
+export async function generateStudySummary(subjectName, chapterName, grade, contextChunks) {
+  const systemPrompt = buildSystemPrompt(subjectName, chapterName, grade);
+  const context = buildContext(contextChunks);
+
+  const userPrompt = `Create a concise study summary for "${chapterName}" in ${subjectName} for Grade ${grade} students.
+
+MATERIAL CONTEXT:
+${context}
+
+Return a JSON object with this exact structure:
+{
+  "title": "Summary: ${chapterName}",
+  "key_concepts": [
+    { "concept": "concept name", "explanation": "clear explanation in 1-2 sentences" }
+  ],
+  "key_formulas": [
+    { "formula": "formula text", "description": "what it represents" }
+  ],
+  "important_definitions": [
+    { "term": "term", "definition": "definition" }
+  ],
+  "important_notes": ["note 1", "note 2"],
+  "common_mistakes": ["mistake 1 to avoid", "mistake 2 to avoid"],
+  "must_know": ["crucial point 1", "crucial point 2"],
+  "real_world_applications": ["application 1", "application 2"]
+}
+
+Include at least 4 key concepts, 2+ definitions, and 3+ important notes.
+If the subject doesn't have formulas, return an empty array for key_formulas.
+ALL content must be strictly about ${subjectName} — ${chapterName}.`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 3000);
+  return parseClaudeJSON(raw);
+}
+
+/**
+ * Get YouTube search recommendations using Claude
+ */
+export async function getYouTubeRecommendations(subjectName, chapterName, grade, contextChunks) {
+  const systemPrompt = buildSystemPrompt(subjectName, chapterName, grade);
+  const context = buildContext(contextChunks);
+
+  const userPrompt = `Suggest YouTube search queries and expected video descriptions for "${chapterName}" in ${subjectName} for Grade ${grade} students.
+
+MATERIAL CONTEXT:
+${context}
+
+Return a JSON object with this exact structure:
+{
+  "search_queries": [
+    "exact youtube search query 1",
+    "exact youtube search query 2"
+  ],
+  "recommendations": [
+    {
+      "title": "descriptive video title a student should search for",
+      "search_query": "youtube search query",
+      "description": "what the student will learn from this type of video",
+      "relevance": "why this is useful for the chapter",
+      "language": "English"
+    }
+  ]
+}
+
+Requirements:
+- Suggest 4-6 specific YouTube search queries
+- Include queries in both English and Telugu if applicable
+- All queries MUST be about ${subjectName} — ${chapterName} for Grade ${grade}
+- Prefer educational channels (NCERT, TGSCERT, Khan Academy, Byju's)
+- Do NOT fabricate video URLs — only suggest search queries and descriptions`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 2000);
+  return parseClaudeJSON(raw);
+}
+
+/**
+ * Generate worksheet using Claude
+ */
+export async function generateWorksheet(subjectName, chapterName, grade, contextChunks, numQuestions = 15) {
+  const systemPrompt = buildSystemPrompt(subjectName, chapterName, grade);
+  const context = buildContext(contextChunks);
+
+  const userPrompt = `Create a classroom worksheet with ${numQuestions} questions for "${chapterName}" in ${subjectName} for Grade ${grade} students.
+
+MATERIAL CONTEXT:
+${context}
+
+Return a JSON object with this exact structure:
+{
+  "title": "Worksheet: ${chapterName}",
+  "instructions": "clear instructions for students",
+  "total_questions": ${numQuestions},
+  "total_marks": 0,
+  "difficulty": "mixed",
+  "questions": [
+    {
+      "question_number": 1,
+      "question_text": "...",
+      "question_type": "fill_in_the_blank",
+      "marks": 1
+    }
+  ]
+}
+
+Question types mix: fill_in_the_blank, short_answer, long_answer, match_the_following, diagram.
+Set total_marks to the sum of all marks.
+ALL questions MUST be about ${subjectName} — ${chapterName} only.`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 5000);
+  return parseClaudeJSON(raw);
+}
+
+// ============================================
+// EMBEDDING FUNCTIONS (keyword-based, no external API needed)
+// ============================================
+
+/**
+ * Generate a simple keyword-based embedding vector.
+ * Uses character trigram hashing — lightweight, no external API needed.
+ * Effective for educational content similarity matching.
+ */
+export function generateEmbedding(text) {
+  const dim = 256;
+  const vec = new Float64Array(dim);
+  const cleaned = (text || '').toLowerCase().replace(/[^a-z0-9\s]/g, '');
+  const words = cleaned.split(/\s+/).filter(Boolean);
+
+  for (const word of words) {
+    for (let i = 0; i <= word.length - 3; i++) {
+      const trigram = word.slice(i, i + 3);
+      const hash = trigramHash(trigram, dim);
+      vec[hash] += 1;
+    }
   }
+
+  // Normalize to unit vector
+  let norm = 0;
+  for (let i = 0; i < dim; i++) norm += vec[i] * vec[i];
+  norm = Math.sqrt(norm);
+  if (norm > 0) {
+    for (let i = 0; i < dim; i++) vec[i] /= norm;
+  }
+
+  return Array.from(vec);
+}
+
+function trigramHash(trigram, dim) {
+  let h = 0;
+  for (let i = 0; i < trigram.length; i++) {
+    h = ((h << 5) - h + trigram.charCodeAt(i)) | 0;
+  }
+  return ((h % dim) + dim) % dim;
+}
+
+/**
+ * Batch generate embeddings
+ */
+export function batchGenerateEmbeddings(texts) {
+  return texts.map(t => generateEmbedding(t));
 }
 
 /**
  * Calculate cosine similarity between two vectors
  */
 export function cosineSimilarity(vecA, vecB) {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-
-  for (let i = 0; i < vecA.length; i++) {
-    dotProduct += vecA[i] * vecB[i];
+  const len = Math.min(vecA.length, vecB.length);
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < len; i++) {
+    dot += vecA[i] * vecB[i];
     normA += vecA[i] * vecA[i];
     normB += vecB[i] * vecB[i];
   }
-
   normA = Math.sqrt(normA);
   normB = Math.sqrt(normB);
-
-  return dotProduct / (normA * normB);
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (normA * normB);
 }
 
 /**
- * Find most similar chunks (for RAG)
+ * Find most similar chunks using cosine similarity
  */
 export function findSimilarChunks(queryEmbedding, chunks, topK = 5) {
-  const similarities = chunks.map((chunk) => ({
-    ...chunk,
-    similarity: cosineSimilarity(queryEmbedding, chunk.embedding),
-  }));
-
-  return similarities.sort((a, b) => b.similarity - a.similarity).slice(0, topK);
+  const scored = chunks
+    .filter(c => c.embedding && Array.isArray(c.embedding) && c.embedding.length > 0)
+    .map(chunk => ({
+      ...chunk,
+      similarity: cosineSimilarity(queryEmbedding, chunk.embedding),
+    }));
+  return scored.sort((a, b) => b.similarity - a.similarity).slice(0, topK);
 }

@@ -1,10 +1,26 @@
 /**
  * Intelligent RAG & Interactive Teaching Routes
- * Material chunking, embedding, automatic assignment, and RAG-based content generation
+ * Material chunking, embedding, automatic assignment, and Claude-based content generation
  */
 
 import express from 'express';
 import { makeLooseModel } from '../server/supabase-model.js';
+import {
+  splitTextIntoChunks,
+  cleanText,
+  processMaterialContent,
+  validateChunks,
+} from '../services/material-chunking.js';
+import {
+  generatePPTStructure,
+  generateQuizQuestions,
+  generateStudySummary,
+  getYouTubeRecommendations,
+  generateWorksheet,
+  generateEmbedding,
+  findSimilarChunks,
+  cosineSimilarity,
+} from '../services/content-generation.js';
 
 const router = express.Router();
 
@@ -34,19 +50,32 @@ const CACHE_COST_SAVED_USD = {
 };
 
 // ============================================
+// HELPER: Get subject/chapter names from IDs
+// ============================================
+async function resolveNames(subjectId, chapterId, classId) {
+  const subject = subjectId ? await Subject.findOne({ id: parseInt(subjectId) }).lean() : null;
+  const chapter = chapterId ? await Chapter.findOne({ id: parseInt(chapterId) }).lean() : null;
+  const cls = classId ? await Class.findOne({ id: parseInt(classId) }).lean() : null;
+  return {
+    subjectName: subject?.name || 'General',
+    chapterName: chapter?.name || 'General Topic',
+    grade: cls?.grade || 6,
+  };
+}
+
+// ============================================
 // MATERIAL CHUNKING & EMBEDDING
 // ============================================
 
 /**
  * POST /api/rag/materials/:id/chunk
- * Chunk a material and prepare for embedding
+ * Chunk a material's content and store in DB
  */
 router.post('/materials/:id/chunk', async (req, res) => {
   try {
     const { id } = req.params;
-    const { chunk_size = 1000, overlap = 200 } = req.body;
+    const { chunk_size = 1000, overlap = 200, content } = req.body;
 
-    // Get material
     const material = await Material.findOne({ id: parseInt(id) }).lean();
     if (!material) {
       return res.status(404).json({ error: 'Material not found' });
@@ -59,30 +88,46 @@ router.post('/materials/:id/chunk', async (req, res) => {
       status: 'processing',
     });
 
-    // In production, this would:
-    // 1. Extract text from PDF/document
-    // 2. Split into chunks of chunk_size with overlap
-    // 3. Store chunks in material_chunks table
-    // 4. Update job status
+    // Determine text to chunk
+    let textContent = content || material.description || '';
 
-    // For now, simulate chunk creation
-    const chunks = [
-      { text: `Introduction to ${material.title}` },
-      { text: `Main content of ${material.title}` },
-      { text: `Conclusion of ${material.title}` },
-    ];
+    // If no content provided and no description, return error
+    if (!textContent.trim()) {
+      await EmbeddingJob.findOneAndUpdate({ id: job.id }, { status: 'failed', error_message: 'No text content to chunk' });
+      return res.status(400).json({ error: 'No text content provided. Pass "content" in body or ensure material has description.' });
+    }
 
+    // Clean and chunk the text
+    const cleaned = cleanText(textContent);
+    const rawChunks = splitTextIntoChunks(cleaned, chunk_size, overlap);
+    const validChunks = validateChunks(rawChunks);
+
+    // If validation removed all chunks, use raw chunks (content might be short)
+    const chunksToStore = validChunks.length > 0 ? validChunks : rawChunks;
+
+    // Delete existing chunks for this material (re-chunking)
+    const existing = await MaterialChunk.find({ material_id: parseInt(id) }).lean();
+    for (const old of existing) {
+      await MaterialChunk.findOneAndDelete({ id: old.id });
+    }
+
+    // Store chunks in DB
     const createdChunks = [];
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = await MaterialChunk.create({
+    for (let i = 0; i < chunksToStore.length; i++) {
+      const chunk = chunksToStore[i];
+      // Generate embedding for each chunk
+      const embeddingVec = generateEmbedding(chunk.text);
+
+      const created = await MaterialChunk.create({
         material_id: parseInt(id),
         chapter_id: material.chapter_id || null,
         topic_id: material.topic_id || null,
         chunk_number: i + 1,
-        chunk_text: chunks[i].text,
-        token_count: chunks[i].text.split(' ').length,
+        chunk_text: chunk.text,
+        token_count: chunk.token_count,
+        chunk_metadata: JSON.stringify({ embedding_256: embeddingVec }),
       });
-      createdChunks.push(chunk);
+      createdChunks.push(created);
     }
 
     // Update job
@@ -90,8 +135,8 @@ router.post('/materials/:id/chunk', async (req, res) => {
       { id: job.id },
       {
         status: 'completed',
-        total_chunks: chunks.length,
-        processed_chunks: chunks.length,
+        total_chunks: createdChunks.length,
+        processed_chunks: createdChunks.length,
         completed_at: new Date(),
         progress_percentage: 100,
       }
@@ -101,7 +146,7 @@ router.post('/materials/:id/chunk', async (req, res) => {
       material_id: parseInt(id),
       chunks_created: createdChunks.length,
       job_id: job.id,
-      chunks: createdChunks,
+      chunks: createdChunks.map(c => ({ id: c.id, chunk_number: c.chunk_number, token_count: c.token_count, preview: (c.chunk_text || '').slice(0, 100) })),
     });
   } catch (err) {
     console.error('POST /api/rag/materials/:id/chunk error:', err);
@@ -111,14 +156,12 @@ router.post('/materials/:id/chunk', async (req, res) => {
 
 /**
  * POST /api/rag/materials/:id/embed
- * Generate embeddings for material chunks
+ * Re-generate embeddings for all chunks of a material
  */
 router.post('/materials/:id/embed', async (req, res) => {
   try {
     const { id } = req.params;
-    const { embedding_model = 'text-embedding-3-small' } = req.body;
 
-    // Get all chunks for this material
     const chunks = await MaterialChunk.find({ material_id: parseInt(id) }).lean();
     if (chunks.length === 0) {
       return res.status(400).json({ error: 'No chunks found. Please chunk material first.' });
@@ -131,30 +174,22 @@ router.post('/materials/:id/embed', async (req, res) => {
       total_chunks: chunks.length,
     });
 
-    // In production, call OpenAI API or similar:
-    // const embedding = await openai.embeddings.create({
-    //   model: embedding_model,
-    //   input: chunk.chunk_text,
-    // });
-
-    // For now, simulate embeddings
     const updatedChunks = [];
     for (const chunk of chunks) {
-      // Simulate embedding (in prod: call OpenAI)
-      const mockEmbedding = Array(1536).fill(0).map(() => Math.random() * 2 - 1);
-      
-      const updated = await MaterialChunk.findOneAndUpdate(
+      const embeddingVec = generateEmbedding(chunk.chunk_text || '');
+
+      // Store embedding in chunk_metadata
+      const meta = typeof chunk.chunk_metadata === 'string' ? JSON.parse(chunk.chunk_metadata || '{}') : (chunk.chunk_metadata || {});
+      meta.embedding_256 = embeddingVec;
+
+      await MaterialChunk.findOneAndUpdate(
         { id: chunk.id },
-        {
-          embedding: mockEmbedding,
-          embedding_model,
-        },
+        { chunk_metadata: JSON.stringify(meta) },
         { new: true }
       );
-      updatedChunks.push(updated);
+      updatedChunks.push(chunk.id);
     }
 
-    // Mark job complete
     await EmbeddingJob.findOneAndUpdate(
       { id: job.id },
       {
@@ -168,7 +203,7 @@ router.post('/materials/:id/embed', async (req, res) => {
     res.json({
       material_id: parseInt(id),
       chunks_embedded: updatedChunks.length,
-      embedding_model,
+      embedding_model: 'trigram-256',
       job_id: job.id,
     });
   } catch (err) {
@@ -181,10 +216,6 @@ router.post('/materials/:id/embed', async (req, res) => {
 // CHAPTER SESSION DIVISION
 // ============================================
 
-/**
- * POST /api/rag/chapters/:id/create-sessions
- * Divide a chapter into teaching sessions
- */
 router.post('/chapters/:id/create-sessions', async (req, res) => {
   try {
     const { id } = req.params;
@@ -194,23 +225,19 @@ router.post('/chapters/:id/create-sessions', async (req, res) => {
       return res.status(400).json({ error: 'subject_id and num_sessions are required' });
     }
 
-    // Get chapter
     const chapter = await Chapter.findOne({ id: parseInt(id) }).lean();
     if (!chapter) {
       return res.status(404).json({ error: 'Chapter not found' });
     }
 
-    // Get chunks for this chapter
     const chunks = await MaterialChunk.find({ chapter_id: parseInt(id) }).lean();
     if (chunks.length === 0) {
       return res.status(400).json({ error: 'No chunks found for this chapter. Chunk material first.' });
     }
 
-    // Calculate chunks per session
     const chunksPerSession = Math.ceil(chunks.length / num_sessions);
     const sessions = [];
 
-    // Create sessions
     for (let i = 1; i <= num_sessions; i++) {
       const startIndex = (i - 1) * chunksPerSession;
       const endIndex = Math.min(i * chunksPerSession, chunks.length);
@@ -223,7 +250,7 @@ router.post('/chapters/:id/create-sessions', async (req, res) => {
         total_sessions: num_sessions,
         title: `${chapter.name} - Session ${i}`,
         description: `Part ${i} of ${num_sessions}`,
-        estimated_duration: 45 * i, // 45 min per session
+        estimated_duration: 45,
         learning_objectives: [
           `Understand key concepts of session ${i}`,
           `Apply knowledge in practice`,
@@ -233,7 +260,6 @@ router.post('/chapters/:id/create-sessions', async (req, res) => {
           sessionChunks.map(c => ({ chunk_id: c.id, chunk_number: c.chunk_number }))
         ),
       });
-
       sessions.push(session);
     }
 
@@ -250,10 +276,6 @@ router.post('/chapters/:id/create-sessions', async (req, res) => {
   }
 });
 
-/**
- * GET /api/rag/chapters/:id/sessions
- * Get all sessions for a chapter
- */
 router.get('/chapters/:id/sessions', async (req, res) => {
   try {
     const { id } = req.params;
@@ -269,22 +291,9 @@ router.get('/chapters/:id/sessions', async (req, res) => {
 // AUTOMATIC ASSIGNMENT RULES
 // ============================================
 
-/**
- * POST /api/rag/assignment-rules
- * Create an automatic assignment rule
- */
 router.post('/assignment-rules', async (req, res) => {
   try {
-    const {
-      rule_name,
-      rule_type,
-      class_id,
-      subject_id,
-      material_category,
-      material_type,
-      due_date_offset = 7,
-    } = req.body;
-
+    const { rule_name, rule_type, class_id, subject_id, material_category, material_type, due_date_offset = 7 } = req.body;
     if (!rule_name || !rule_type || !class_id || !subject_id) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -300,7 +309,6 @@ router.post('/assignment-rules', async (req, res) => {
       auto_assign: true,
       is_active: true,
     });
-
     res.status(201).json(rule);
   } catch (err) {
     console.error('POST /api/rag/assignment-rules error:', err);
@@ -308,35 +316,21 @@ router.post('/assignment-rules', async (req, res) => {
   }
 });
 
-/**
- * GET /api/rag/assignment-rules
- * Get all assignment rules
- */
 router.get('/assignment-rules', async (req, res) => {
   try {
     const rules = await AssignmentRule.find({ is_active: true }).lean();
     res.json(rules);
   } catch (err) {
-    console.error('GET /api/rag/assignment-rules error:', err);
     res.status(500).json({ error: 'Failed to fetch rules' });
   }
 });
 
-/**
- * POST /api/rag/assignment-rules/:id/execute
- * Execute an assignment rule (assign to all teachers)
- */
 router.post('/assignment-rules/:id/execute', async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Get rule
     const rule = await AssignmentRule.findOne({ id: parseInt(id) }).lean();
-    if (!rule) {
-      return res.status(404).json({ error: 'Rule not found' });
-    }
+    if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
-    // Get all teachers for this class and subject
     const teacherMappings = await TeacherClassSubjectMapping.find({
       class_id: rule.class_id,
       subject_id: rule.subject_id,
@@ -346,18 +340,13 @@ router.post('/assignment-rules/:id/execute', async (req, res) => {
       return res.status(400).json({ error: 'No teachers found for this class/subject combination' });
     }
 
-    // Get matching materials
-    const materialQuery = {
-      subject_id: rule.subject_id,
-      is_published: true,
-    };
+    const materialQuery = { subject_id: rule.subject_id, is_published: true };
     if (rule.material_category) materialQuery.category = rule.material_category;
     if (rule.material_type) materialQuery.material_type = rule.material_type;
 
     const materials = await Material.find(materialQuery).lean();
-
-    // Create assignments
     let assignmentCount = 0;
+
     for (const mapping of teacherMappings) {
       for (const material of materials) {
         try {
@@ -369,9 +358,7 @@ router.post('/assignment-rules/:id/execute', async (req, res) => {
             status: 'active',
           });
           assignmentCount++;
-        } catch (err) {
-          // Skip duplicates
-        }
+        } catch (err) { /* skip duplicates */ }
       }
     }
 
@@ -391,25 +378,12 @@ router.post('/assignment-rules/:id/execute', async (req, res) => {
 // INTERACTIVE TEACHING SESSIONS
 // ============================================
 
-/**
- * POST /api/rag/interactive-session
- * Create an interactive teaching session
- */
 router.post('/interactive-session', async (req, res) => {
   try {
-    const {
-      teacher_id,
-      class_id,
-      subject_id,
-      chapter_id,
-      chapter_session_id,
-      session_date,
-      session_type, // 'ppt_generation', 'quiz_generation', 'summary', 'youtube_recommendation'
-      student_count,
-    } = req.body;
+    const { teacher_id, class_id, subject_id, chapter_id, chapter_session_id, session_date, session_type, student_count } = req.body;
 
     if (!teacher_id || !class_id || !subject_id || !session_date || !session_type) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Missing required fields: teacher_id, class_id, subject_id, session_date, session_type' });
     }
 
     const session = await InteractiveTeachingSession.create({
@@ -434,41 +408,55 @@ router.post('/interactive-session', async (req, res) => {
 
 /**
  * POST /api/rag/interactive-session/:id/retrieve-context
- * Retrieve relevant chunks for this class/subject from Vector DB
+ * Retrieve relevant chunks using keyword-embedding similarity
  */
 router.post('/interactive-session/:id/retrieve-context', async (req, res) => {
   try {
     const { id } = req.params;
     const { query, limit = 5 } = req.body;
 
-    // Get session
     const session = await InteractiveTeachingSession.findOne({ id: parseInt(id) }).lean();
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    const startMs = Date.now();
+
+    // Get all chunks (filter by subject via material)
+    const allChunks = await MaterialChunk.find({}).lean();
+
+    // Parse embeddings from chunk_metadata
+    const chunksWithEmbeddings = allChunks.map(c => {
+      let meta = {};
+      try { meta = typeof c.chunk_metadata === 'string' ? JSON.parse(c.chunk_metadata) : (c.chunk_metadata || {}); } catch { /* ignore */ }
+      return { ...c, embedding: meta.embedding_256 || null };
+    }).filter(c => c.embedding);
+
+    let relevantChunks;
+    if (query && chunksWithEmbeddings.length > 0) {
+      // Use embedding similarity
+      const queryEmb = generateEmbedding(query);
+      relevantChunks = findSimilarChunks(queryEmb, chunksWithEmbeddings, limit);
+    } else {
+      // Fallback: filter by chapter_id if available
+      const filtered = allChunks.filter(c => {
+        if (session.chapter_id) return c.chapter_id === session.chapter_id;
+        return true;
+      });
+      relevantChunks = filtered.slice(0, limit).map(c => ({ ...c, similarity: 1.0 }));
     }
 
-    // Get relevant chunks for class/subject
-    const chunks = await MaterialChunk.find({}).lean();
-
-    // Filter by subject and chapter (in production, this would use cosine similarity)
-    const relevantChunks = chunks
-      .filter(c => {
-        // Get material to check subject
-        return true; // Simplified for demo
-      })
-      .slice(0, limit);
+    const retrievalTimeMs = Date.now() - startMs;
 
     // Log retrieval
-    const retrievalLog = await RagRetrievalLog.create({
+    await RagRetrievalLog.create({
       interactive_session_id: parseInt(id),
-      query_text: query,
+      query_text: query || 'no query',
       retrieved_chunks: JSON.stringify(relevantChunks.map(c => c.id)),
+      relevance_scores: JSON.stringify(relevantChunks.map(c => c.similarity || 0)),
       chunk_count: relevantChunks.length,
-      retrieval_time_ms: 100,
+      retrieval_time_ms: retrievalTimeMs,
       used_for_generation: true,
     });
 
-    // Update session
     await InteractiveTeachingSession.findOneAndUpdate(
       { id: parseInt(id) },
       { context_embeddings_retrieved: relevantChunks.length }
@@ -477,8 +465,14 @@ router.post('/interactive-session/:id/retrieve-context', async (req, res) => {
     res.json({
       session_id: parseInt(id),
       chunks_retrieved: relevantChunks.length,
-      chunks: relevantChunks,
-      retrieval_log_id: retrievalLog.id,
+      retrieval_time_ms: retrievalTimeMs,
+      chunks: relevantChunks.map(c => ({
+        id: c.id,
+        chunk_number: c.chunk_number,
+        chunk_text: c.chunk_text,
+        similarity: c.similarity,
+        chapter_id: c.chapter_id,
+      })),
     });
   } catch (err) {
     console.error('POST /api/rag/interactive-session/:id/retrieve-context error:', err);
@@ -488,7 +482,7 @@ router.post('/interactive-session/:id/retrieve-context', async (req, res) => {
 
 /**
  * POST /api/rag/interactive-session/:id/generate-ppt
- * Generate PPT based on class/subject context
+ * Generate PPT using Claude with RAG context
  */
 router.post('/interactive-session/:id/generate-ppt', async (req, res) => {
   try {
@@ -496,60 +490,54 @@ router.post('/interactive-session/:id/generate-ppt', async (req, res) => {
     const { title, num_slides = 10 } = req.body;
 
     const session = await InteractiveTeachingSession.findOne({ id: parseInt(id) }).lean();
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
+    if (!session) return res.status(404).json({ error: 'Session not found' });
 
     // Check cache first
-    let cached = await GeneratedContentCache.findOne({
+    const cached = await GeneratedContentCache.findOne({
       content_type: 'ppt',
       class_id: session.class_id,
       subject_id: session.subject_id,
       chapter_session_id: session.chapter_session_id,
     }).lean();
 
-    if (cached && new Date(cached.cache_valid_until) > new Date()) {
+    if (cached && cached.cache_valid_until && new Date(cached.cache_valid_until) > new Date()) {
       await GeneratedContentCache.findOneAndUpdate(
         { id: cached.id },
-        {
-          access_count: (cached.access_count || 0) + 1,
-          last_accessed_at: new Date(),
-        }
+        { access_count: (cached.access_count || 0) + 1, last_accessed_at: new Date() }
       );
+      const cachedContent = typeof cached.content_metadata === 'string' ? JSON.parse(cached.content_metadata) : cached.content_metadata;
       return res.json({
         session_id: parseInt(id),
         content_type: 'ppt',
-        content_url: cached.content_url,
         generated: false,
         cached: true,
+        data: cachedContent,
       });
     }
 
-    // In production:
-    // 1. Retrieve context from Vector DB
-    // 2. Call LLM with prompt
-    // 3. Call PPT generation API (e.g., python-pptx)
-    // 4. Cache result
+    // Resolve names for guardrails
+    const { subjectName, chapterName, grade } = await resolveNames(session.subject_id, session.chapter_id, session.class_id);
 
-    // Simulate PPT generation
-    const mockPptUrl = `https://generated-content.com/ppt_${session.id}_${Date.now()}.pptx`;
+    // Get context chunks
+    const chunks = await MaterialChunk.find({ chapter_id: session.chapter_id }).lean();
+    const contextChunks = chunks.length > 0 ? chunks.slice(0, 10) : [];
 
-    const generatedContent = await GeneratedContentCache.create({
+    // Generate PPT with Claude
+    const startTime = Date.now();
+    const pptData = await generatePPTStructure(subjectName, chapterName, grade, contextChunks, title || `${chapterName} - ${subjectName}`);
+    const genSeconds = Math.round((Date.now() - startTime) / 1000);
+
+    // Cache the result
+    await GeneratedContentCache.create({
       content_type: 'ppt',
       class_id: session.class_id,
       subject_id: session.subject_id,
-      chapter_session_id: session.chapter_session_id,
-      content_url: mockPptUrl,
-      content_file_name: `${title || 'Generated'}_PPT.pptx`,
-      content_metadata: JSON.stringify({
-        slides: num_slides,
-        title,
-        class_id: session.class_id,
-        subject_id: session.subject_id,
-      }),
-      generation_prompt: `Generate PPT for ${title} class ${session.class_id} subject ${session.subject_id}`,
-      ai_model_used: 'gpt-4',
-      generation_time_seconds: 30,
+      chapter_session_id: session.chapter_session_id || null,
+      content_metadata: JSON.stringify(pptData),
+      content_file_name: `${title || chapterName}_PPT.json`,
+      generation_prompt: `PPT for ${subjectName} - ${chapterName} Grade ${grade}`,
+      ai_model_used: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+      generation_time_seconds: genSeconds,
       cache_valid_until: new Date(Date.now() + CACHE_TTL_HOURS * 60 * 60 * 1000),
       access_count: 1,
       last_accessed_at: new Date(),
@@ -558,31 +546,26 @@ router.post('/interactive-session/:id/generate-ppt', async (req, res) => {
     // Update session
     await InteractiveTeachingSession.findOneAndUpdate(
       { id: parseInt(id) },
-      {
-        interactive_content: JSON.stringify({
-          ppt_url: mockPptUrl,
-          generated_at: new Date(),
-        }),
-      }
+      { interactive_content: JSON.stringify({ ppt: pptData, generated_at: new Date() }), ai_model_used: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514' }
     );
 
     res.json({
       session_id: parseInt(id),
       content_type: 'ppt',
-      content_url: mockPptUrl,
-      slides: num_slides,
-      title,
       generated: true,
+      cached: false,
+      generation_time_seconds: genSeconds,
+      data: pptData,
     });
   } catch (err) {
     console.error('POST /api/rag/interactive-session/:id/generate-ppt error:', err);
-    res.status(500).json({ error: 'Failed to generate PPT' });
+    res.status(500).json({ error: err.message || 'Failed to generate PPT' });
   }
 });
 
 /**
  * POST /api/rag/interactive-session/:id/generate-quiz
- * Generate quiz based on class/subject context
+ * Generate quiz using Claude with RAG context
  */
 router.post('/interactive-session/:id/generate-quiz', async (req, res) => {
   try {
@@ -590,52 +573,47 @@ router.post('/interactive-session/:id/generate-quiz', async (req, res) => {
     const { title, num_questions = 10, difficulty = 'intermediate' } = req.body;
 
     const session = await InteractiveTeachingSession.findOne({ id: parseInt(id) }).lean();
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
+    if (!session) return res.status(404).json({ error: 'Session not found' });
 
     // Check cache
-    let cached = await GeneratedContentCache.findOne({
+    const cached = await GeneratedContentCache.findOne({
       content_type: 'quiz',
       class_id: session.class_id,
       subject_id: session.subject_id,
     }).lean();
 
-    if (cached && new Date(cached.cache_valid_until) > new Date()) {
+    if (cached && cached.cache_valid_until && new Date(cached.cache_valid_until) > new Date()) {
       await GeneratedContentCache.findOneAndUpdate(
         { id: cached.id },
-        {
-          access_count: (cached.access_count || 0) + 1,
-          last_accessed_at: new Date(),
-        }
+        { access_count: (cached.access_count || 0) + 1, last_accessed_at: new Date() }
       );
+      const cachedContent = typeof cached.content_metadata === 'string' ? JSON.parse(cached.content_metadata) : cached.content_metadata;
       return res.json({
         session_id: parseInt(id),
         content_type: 'quiz',
-        content_url: cached.content_url,
         generated: false,
         cached: true,
+        data: cachedContent,
       });
     }
 
-    // Simulate quiz generation
-    const mockQuizUrl = `https://generated-content.com/quiz_${session.id}_${Date.now()}.json`;
+    const { subjectName, chapterName, grade } = await resolveNames(session.subject_id, session.chapter_id, session.class_id);
+    const chunks = await MaterialChunk.find({ chapter_id: session.chapter_id }).lean();
 
-    const generatedContent = await GeneratedContentCache.create({
+    const startTime = Date.now();
+    const quizData = await generateQuizQuestions(subjectName, chapterName, grade, chunks.slice(0, 10), num_questions, difficulty);
+    const genSeconds = Math.round((Date.now() - startTime) / 1000);
+
+    await GeneratedContentCache.create({
       content_type: 'quiz',
       class_id: session.class_id,
       subject_id: session.subject_id,
-      chapter_session_id: session.chapter_session_id,
-      content_url: mockQuizUrl,
-      content_file_name: `${title || 'Generated'}_Quiz.json`,
-      content_metadata: JSON.stringify({
-        questions: num_questions,
-        difficulty,
-        title,
-      }),
-      generation_prompt: `Generate ${difficulty} quiz with ${num_questions} questions for class ${session.class_id}`,
-      ai_model_used: 'gpt-4',
-      generation_time_seconds: 20,
+      chapter_session_id: session.chapter_session_id || null,
+      content_metadata: JSON.stringify(quizData),
+      content_file_name: `${title || chapterName}_Quiz.json`,
+      generation_prompt: `Quiz for ${subjectName} - ${chapterName} Grade ${grade} ${difficulty}`,
+      ai_model_used: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+      generation_time_seconds: genSeconds,
       cache_valid_until: new Date(Date.now() + CACHE_TTL_HOURS * 60 * 60 * 1000),
       access_count: 1,
       last_accessed_at: new Date(),
@@ -644,145 +622,271 @@ router.post('/interactive-session/:id/generate-quiz', async (req, res) => {
     res.json({
       session_id: parseInt(id),
       content_type: 'quiz',
-      content_url: mockQuizUrl,
-      questions: num_questions,
-      difficulty,
-      title,
       generated: true,
+      cached: false,
+      generation_time_seconds: genSeconds,
+      data: quizData,
     });
   } catch (err) {
     console.error('POST /api/rag/interactive-session/:id/generate-quiz error:', err);
-    res.status(500).json({ error: 'Failed to generate quiz' });
+    res.status(500).json({ error: err.message || 'Failed to generate quiz' });
+  }
+});
+
+/**
+ * POST /api/rag/interactive-session/:id/generate-summary
+ * Generate study summary using Claude
+ */
+router.post('/interactive-session/:id/generate-summary', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const session = await InteractiveTeachingSession.findOne({ id: parseInt(id) }).lean();
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    // Check cache
+    const cached = await GeneratedContentCache.findOne({
+      content_type: 'summary',
+      class_id: session.class_id,
+      subject_id: session.subject_id,
+    }).lean();
+
+    if (cached && cached.cache_valid_until && new Date(cached.cache_valid_until) > new Date()) {
+      await GeneratedContentCache.findOneAndUpdate(
+        { id: cached.id },
+        { access_count: (cached.access_count || 0) + 1, last_accessed_at: new Date() }
+      );
+      const cachedContent = typeof cached.content_metadata === 'string' ? JSON.parse(cached.content_metadata) : cached.content_metadata;
+      return res.json({ session_id: parseInt(id), content_type: 'summary', generated: false, cached: true, data: cachedContent });
+    }
+
+    const { subjectName, chapterName, grade } = await resolveNames(session.subject_id, session.chapter_id, session.class_id);
+    const chunks = await MaterialChunk.find({ chapter_id: session.chapter_id }).lean();
+
+    const startTime = Date.now();
+    const summaryData = await generateStudySummary(subjectName, chapterName, grade, chunks.slice(0, 10));
+    const genSeconds = Math.round((Date.now() - startTime) / 1000);
+
+    await GeneratedContentCache.create({
+      content_type: 'summary',
+      class_id: session.class_id,
+      subject_id: session.subject_id,
+      chapter_session_id: session.chapter_session_id || null,
+      content_metadata: JSON.stringify(summaryData),
+      generation_prompt: `Summary for ${subjectName} - ${chapterName} Grade ${grade}`,
+      ai_model_used: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+      generation_time_seconds: genSeconds,
+      cache_valid_until: new Date(Date.now() + CACHE_TTL_HOURS * 60 * 60 * 1000),
+      access_count: 1,
+      last_accessed_at: new Date(),
+    });
+
+    res.json({ session_id: parseInt(id), content_type: 'summary', generated: true, cached: false, generation_time_seconds: genSeconds, data: summaryData });
+  } catch (err) {
+    console.error('POST /api/rag/interactive-session/:id/generate-summary error:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate summary' });
   }
 });
 
 /**
  * POST /api/rag/interactive-session/:id/get-youtube-recommendations
- * Get curated YouTube videos for this class/subject
+ * Get YouTube search suggestions using Claude
  */
 router.post('/interactive-session/:id/get-youtube-recommendations', async (req, res) => {
   try {
     const { id } = req.params;
 
     const session = await InteractiveTeachingSession.findOne({ id: parseInt(id) }).lean();
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
+    if (!session) return res.status(404).json({ error: 'Session not found' });
 
-    // Get YouTube recommendations for this chapter (if applicable)
-    // In a real implementation, fetch from youtube_recommendations table
+    const { subjectName, chapterName, grade } = await resolveNames(session.subject_id, session.chapter_id, session.class_id);
+    const chunks = await MaterialChunk.find({ chapter_id: session.chapter_id }).lean();
 
-    const recommendations = [
-      {
-        title: 'Understanding Concepts',
-        url: 'https://youtube.com/watch?v=example1',
-        duration: 1200,
-      },
-      {
-        title: 'Real-world Applications',
-        url: 'https://youtube.com/watch?v=example2',
-        duration: 900,
-      },
-    ];
+    const startTime = Date.now();
+    const ytData = await getYouTubeRecommendations(subjectName, chapterName, grade, chunks.slice(0, 5));
+    const genSeconds = Math.round((Date.now() - startTime) / 1000);
 
     res.json({
       session_id: parseInt(id),
-      class_id: session.class_id,
-      subject_id: session.subject_id,
-      recommendations,
+      content_type: 'youtube',
+      generation_time_seconds: genSeconds,
+      data: ytData,
     });
   } catch (err) {
     console.error('POST /api/rag/interactive-session/:id/get-youtube-recommendations error:', err);
-    res.status(500).json({ error: 'Failed to get recommendations' });
+    res.status(500).json({ error: err.message || 'Failed to get recommendations' });
+  }
+});
+
+/**
+ * POST /api/rag/interactive-session/:id/generate-worksheet
+ * Generate worksheet using Claude
+ */
+router.post('/interactive-session/:id/generate-worksheet', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { num_questions = 15 } = req.body;
+
+    const session = await InteractiveTeachingSession.findOne({ id: parseInt(id) }).lean();
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    const { subjectName, chapterName, grade } = await resolveNames(session.subject_id, session.chapter_id, session.class_id);
+    const chunks = await MaterialChunk.find({ chapter_id: session.chapter_id }).lean();
+
+    const startTime = Date.now();
+    const worksheetData = await generateWorksheet(subjectName, chapterName, grade, chunks.slice(0, 10), num_questions);
+    const genSeconds = Math.round((Date.now() - startTime) / 1000);
+
+    await GeneratedContentCache.create({
+      content_type: 'worksheet',
+      class_id: session.class_id,
+      subject_id: session.subject_id,
+      chapter_session_id: session.chapter_session_id || null,
+      content_metadata: JSON.stringify(worksheetData),
+      generation_prompt: `Worksheet for ${subjectName} - ${chapterName} Grade ${grade}`,
+      ai_model_used: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+      generation_time_seconds: genSeconds,
+      cache_valid_until: new Date(Date.now() + CACHE_TTL_HOURS * 60 * 60 * 1000),
+      access_count: 1,
+      last_accessed_at: new Date(),
+    });
+
+    res.json({
+      session_id: parseInt(id),
+      content_type: 'worksheet',
+      generated: true,
+      generation_time_seconds: genSeconds,
+      data: worksheetData,
+    });
+  } catch (err) {
+    console.error('POST /api/rag/interactive-session/:id/generate-worksheet error:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate worksheet' });
   }
 });
 
 /**
  * PUT /api/rag/interactive-session/:id/complete
- * Mark session as completed
  */
 router.put('/interactive-session/:id/complete', async (req, res) => {
   try {
     const { id } = req.params;
-
     const session = await InteractiveTeachingSession.findOneAndUpdate(
       { id: parseInt(id) },
-      {
-        status: 'completed',
-        end_time: new Date(),
-      },
+      { status: 'completed', end_time: new Date() },
       { new: true }
     );
-
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
-
-    res.json({
-      session_id: parseInt(id),
-      status: 'completed',
-      end_time: session.end_time,
-    });
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    res.json({ session_id: parseInt(id), status: 'completed', end_time: session.end_time });
   } catch (err) {
-    console.error('PUT /api/rag/interactive-session/:id/complete error:', err);
     res.status(500).json({ error: 'Failed to complete session' });
   }
 });
 
 // ============================================
-// TEACHER DASHBOARD - CONTEXT-AWARE
+// DIRECT GENERATION (no session needed)
 // ============================================
 
 /**
- * GET /api/rag/teacher/:id/dashboard/class/:class_id/subject/:subject_id
- * Get teacher dashboard for specific class and subject
+ * POST /api/rag/generate
+ * Direct content generation without creating a session first
+ * Great for quick generation from the admin or teacher dashboard
  */
+router.post('/generate', async (req, res) => {
+  try {
+    const { type, subject_id, chapter_id, class_id, title, num_questions, difficulty, num_slides } = req.body;
+
+    if (!type || !subject_id) {
+      return res.status(400).json({ error: 'type and subject_id are required. type: ppt|quiz|summary|youtube|worksheet' });
+    }
+
+    const { subjectName, chapterName, grade } = await resolveNames(subject_id, chapter_id, class_id);
+    const chunks = chapter_id ? await MaterialChunk.find({ chapter_id: parseInt(chapter_id) }).lean() : [];
+
+    let data;
+    const startTime = Date.now();
+
+    switch (type) {
+      case 'ppt':
+        data = await generatePPTStructure(subjectName, chapterName, grade, chunks.slice(0, 10), title || `${chapterName}`);
+        break;
+      case 'quiz':
+        data = await generateQuizQuestions(subjectName, chapterName, grade, chunks.slice(0, 10), num_questions || 10, difficulty || 'intermediate');
+        break;
+      case 'summary':
+        data = await generateStudySummary(subjectName, chapterName, grade, chunks.slice(0, 10));
+        break;
+      case 'youtube':
+        data = await getYouTubeRecommendations(subjectName, chapterName, grade, chunks.slice(0, 5));
+        break;
+      case 'worksheet':
+        data = await generateWorksheet(subjectName, chapterName, grade, chunks.slice(0, 10), num_questions || 15);
+        break;
+      default:
+        return res.status(400).json({ error: `Unknown type: ${type}. Use: ppt, quiz, summary, youtube, worksheet` });
+    }
+
+    const genSeconds = Math.round((Date.now() - startTime) / 1000);
+
+    res.json({
+      content_type: type,
+      subject: subjectName,
+      chapter: chapterName,
+      grade,
+      generation_time_seconds: genSeconds,
+      data,
+    });
+  } catch (err) {
+    console.error('POST /api/rag/generate error:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate content' });
+  }
+});
+
+// ============================================
+// TEACHER DASHBOARD
+// ============================================
+
 router.get('/teacher/:id/dashboard/class/:class_id/subject/:subject_id', async (req, res) => {
   try {
     const { id: teacherId, class_id: classId, subject_id: subjectId } = req.params;
 
-    // Get teacher info
     const teacher = await Teacher.findOne({ id: parseInt(teacherId) }).lean();
-    if (!teacher) {
-      return res.status(404).json({ error: 'Teacher not found' });
-    }
+    if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
 
-    // Get class info
     const classInfo = await Class.findOne({ id: parseInt(classId) }).lean();
     const subject = await Subject.findOne({ id: parseInt(subjectId) }).lean();
-
-    // Get assigned materials for this class/subject
-    const materials = await Material.find({
-      subject_id: parseInt(subjectId),
-    }).lean();
-
-    // Get chapter sessions
+    const materials = await Material.find({ subject_id: parseInt(subjectId) }).lean();
     const chapters = await Chapter.find({ subject_id: parseInt(subjectId) }).lean();
-    const sessions = await ChapterSession.find({
-      subject_id: parseInt(subjectId),
-    }).lean();
-
-    // Get recent interactive sessions
+    const sessions = await ChapterSession.find({ subject_id: parseInt(subjectId) }).lean();
     const recentSessions = await InteractiveTeachingSession.find({
       teacher_id: parseInt(teacherId),
       class_id: parseInt(classId),
       subject_id: parseInt(subjectId),
     }).lean();
 
+    // Count chunks across all materials for this subject
+    let totalChunks = 0;
+    for (const ch of chapters) {
+      const chunkCount = await MaterialChunk.find({ chapter_id: ch.id }).lean();
+      totalChunks += chunkCount.length;
+    }
+
     res.json({
       teacher: { id: teacher.id, name: teacher.full_name },
-      class: { id: classInfo.id, name: classInfo.name },
-      subject: { id: subject.id, name: subject.name },
+      class: classInfo ? { id: classInfo.id, name: classInfo.name, grade: classInfo.grade } : null,
+      subject: subject ? { id: subject.id, name: subject.name } : null,
       available_materials: materials.length,
       materials: materials.slice(0, 5),
       chapters: chapters.length,
+      chapter_list: chapters.map(c => ({ id: c.id, name: c.name })),
       chapter_sessions: sessions.length,
+      total_chunks: totalChunks,
       recent_sessions: recentSessions.slice(0, 3),
       quick_actions: [
-        { action: 'generate_ppt', label: 'Generate PPT' },
-        { action: 'generate_quiz', label: 'Create Quiz' },
-        { action: 'get_videos', label: 'YouTube Videos' },
-        { action: 'summary', label: 'AI Summary' },
+        { action: 'generate_ppt', label: 'Generate PPT', type: 'ppt' },
+        { action: 'generate_quiz', label: 'Create Quiz', type: 'quiz' },
+        { action: 'generate_summary', label: 'AI Summary', type: 'summary' },
+        { action: 'get_videos', label: 'YouTube Videos', type: 'youtube' },
+        { action: 'generate_worksheet', label: 'Worksheet', type: 'worksheet' },
       ],
     });
   } catch (err) {
@@ -792,18 +896,14 @@ router.get('/teacher/:id/dashboard/class/:class_id/subject/:subject_id', async (
 });
 
 // ============================================
-// CACHE OPERATIONS (COST CONTROL)
+// CACHE OPERATIONS
 // ============================================
 
-/**
- * GET /api/rag/cache/stats
- * Returns cache hit/cost-saving summary
- */
 router.get('/cache/stats', async (_req, res) => {
   try {
     const allCache = await GeneratedContentCache.find({}).lean();
     const now = new Date();
-    const active = allCache.filter((entry) => !entry.cache_valid_until || new Date(entry.cache_valid_until) > now);
+    const active = allCache.filter(e => !e.cache_valid_until || new Date(e.cache_valid_until) > now);
 
     let totalAccesses = 0;
     let estimatedSavings = 0;
@@ -813,14 +913,9 @@ router.get('/cache/stats', async (_req, res) => {
       const type = row.content_type || 'unknown';
       const accesses = row.access_count || 0;
       const unitSave = CACHE_COST_SAVED_USD[type] || 0;
-
       totalAccesses += accesses;
       estimatedSavings += accesses * unitSave;
-
-      if (!byType[type]) {
-        byType[type] = { entries: 0, accesses: 0, estimated_savings_usd: 0 };
-      }
-
+      if (!byType[type]) byType[type] = { entries: 0, accesses: 0, estimated_savings_usd: 0 };
       byType[type].entries += 1;
       byType[type].accesses += accesses;
       byType[type].estimated_savings_usd += accesses * unitSave;
@@ -834,44 +929,30 @@ router.get('/cache/stats', async (_req, res) => {
       ttl_hours: CACHE_TTL_HOURS,
     });
   } catch (err) {
-    console.error('GET /api/rag/cache/stats error:', err);
     res.status(500).json({ error: 'Failed to get cache stats' });
   }
 });
 
-/**
- * POST /api/rag/cache/cleanup
- * Removes expired cache rows
- */
 router.post('/cache/cleanup', async (_req, res) => {
   try {
     const now = new Date();
     const allCache = await GeneratedContentCache.find({}).lean();
-    const expired = allCache.filter((entry) => entry.cache_valid_until && new Date(entry.cache_valid_until) <= now);
-
+    const expired = allCache.filter(e => e.cache_valid_until && new Date(e.cache_valid_until) <= now);
     let deleted = 0;
     for (const row of expired) {
       await GeneratedContentCache.findOneAndDelete({ id: row.id });
-      deleted += 1;
+      deleted++;
     }
-
     res.json({ deleted_expired_entries: deleted });
   } catch (err) {
-    console.error('POST /api/rag/cache/cleanup error:', err);
     res.status(500).json({ error: 'Failed to cleanup cache' });
   }
 });
 
-/**
- * POST /api/rag/cache/invalidate
- * Invalidates cache for a specific context
- */
 router.post('/cache/invalidate', async (req, res) => {
   try {
     const { content_type, class_id, subject_id, chapter_session_id } = req.body || {};
-    if (!content_type) {
-      return res.status(400).json({ error: 'content_type is required' });
-    }
+    if (!content_type) return res.status(400).json({ error: 'content_type is required' });
 
     const query = { content_type };
     if (class_id != null) query.class_id = parseInt(class_id);
@@ -881,17 +962,39 @@ router.post('/cache/invalidate', async (req, res) => {
     const rows = await GeneratedContentCache.find(query).lean();
     let invalidated = 0;
     for (const row of rows) {
-      await GeneratedContentCache.findOneAndUpdate(
-        { id: row.id },
-        { cache_valid_until: new Date(Date.now() - 1000) }
-      );
-      invalidated += 1;
+      await GeneratedContentCache.findOneAndUpdate({ id: row.id }, { cache_valid_until: new Date(Date.now() - 1000) });
+      invalidated++;
     }
-
     res.json({ invalidated_entries: invalidated, scope: query });
   } catch (err) {
-    console.error('POST /api/rag/cache/invalidate error:', err);
     res.status(500).json({ error: 'Failed to invalidate cache' });
+  }
+});
+
+// ============================================
+// STATUS ENDPOINT
+// ============================================
+
+router.get('/status', async (_req, res) => {
+  try {
+    const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
+    const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+    const chunks = await MaterialChunk.find({}).lean();
+    const sessions = await InteractiveTeachingSession.find({}).lean();
+    const cache = await GeneratedContentCache.find({}).lean();
+
+    res.json({
+      rag_system: 'active',
+      llm_configured: hasApiKey,
+      llm_model: model,
+      total_chunks: chunks.length,
+      total_sessions: sessions.length,
+      cached_content: cache.length,
+      embedding_type: 'trigram-256 (local, no API cost)',
+      features: ['ppt', 'quiz', 'summary', 'youtube', 'worksheet'],
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get status' });
   }
 });
 
