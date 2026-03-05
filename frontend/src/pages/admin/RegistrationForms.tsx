@@ -16,7 +16,18 @@ type StudentFormProps = {
   onSuccess?: () => void;
 };
 
-export const StudentForm: React.FC<StudentFormProps> = ({ onClose, schools, classes, onSuccess }) => {
+export interface RegisteredStudentData {
+  id: string;
+  student_unique_id?: string;
+  name: string;
+  rollNo: number;
+  section: string;
+  classId: string;
+  className?: string;
+  schoolName?: string;
+}
+
+export const StudentForm: React.FC<StudentFormProps & { onRegistered?: (data: RegisteredStudentData) => void }> = ({ onClose, schools, classes, onSuccess, onRegistered }) => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [rollNo, setRollNo] = useState("");
@@ -63,13 +74,19 @@ export const StudentForm: React.FC<StudentFormProps> = ({ onClose, schools, clas
         class_id: finalClassId ?? undefined,
         password: password.trim() || undefined,
       });
-      if (result.student_unique_id) {
-        alert(`Student created with unique ID ${result.student_unique_id}`);
-      } else {
-        alert("Student created successfully");
-      }
+      const selectedClass = classes.find(c => c.id === finalClassId);
+      const selectedSchool = schools.find(s => s.id === schoolId);
+      onRegistered?.({
+        id: result.id || result.student_unique_id || '',
+        student_unique_id: result.student_unique_id,
+        name: full_name,
+        rollNo: rollNum,
+        section: section.trim(),
+        classId: finalClassId ?? '',
+        className: selectedClass?.name,
+        schoolName: selectedSchool?.name,
+      });
       onSuccess?.();
-      onClose?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to register student.");
     } finally {
