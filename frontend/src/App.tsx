@@ -35,6 +35,10 @@ import StudentRegistration from "./pages/admin/StudentRegistration";
 import TeacherRegistration from "./pages/admin/TeacherRegistration";
 import StudentBulkUpload from "./pages/admin/StudentBulkUpload";
 import TeacherBulkUpload from "./pages/admin/TeacherBulkUpload";
+import QuizBoardDisplay from "./pages/teacher/QuizBoardDisplay";
+import TeacherQuizScanner from "./pages/teacher/TeacherQuizScanner";
+import QuizSessionManager from "./pages/teacher/QuizSessionManager";
+import PrintableQRCards from "./pages/teacher/PrintableQRCards";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +62,10 @@ const App = () => (
             <Route path="/teacher/quiz" element={<QuizScreen />} />
             <Route path="/teacher/interactive-teaching" element={<InteractiveTeachingDashboard />} />
             <Route path="/teacher/materials" element={<TeacherMaterials />} />
+            <Route path="/teacher/quiz-board" element={<QuizBoardDisplay />} />
+            <Route path="/teacher/quiz-scanner" element={<TeacherQuizScanner />} />
+            <Route path="/teacher/quiz-sessions" element={<QuizSessionManager />} />
+            <Route path="/teacher/qr-cards" element={<PrintableQRCards />} />
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/schools-analytics" element={<SchoolsAnalytics />} />

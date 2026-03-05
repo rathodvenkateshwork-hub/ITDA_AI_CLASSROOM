@@ -8,6 +8,7 @@ import teacherRoutes from "../routes/teacher.js";
 import studentRoutes from "../routes/student.js";
 import materialsRoutes from "../routes/materials.js";
 import intelligentRagRoutes from "../routes/intelligent-rag.js";
+import qrQuizRoutes from "../routes/qr-quiz.js";
 
 const app = express();
 app.use(cors());
@@ -1114,6 +1115,9 @@ app.use("/api/materials", materialsRoutes);
 
 // RAG & Interactive Teaching Routes
 app.use("/api/rag", intelligentRagRoutes);
+
+// QR Quiz Session Routes
+app.use("/api/qr-quiz", qrQuizRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
