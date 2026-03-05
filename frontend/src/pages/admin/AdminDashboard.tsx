@@ -1344,6 +1344,19 @@ const AdminDashboard = () => {
 
         {/* MATERIALS */}
         <TabsContent value="materials" className="space-y-4">
+          {/* Upload & Manage Banner */}
+          <Card className="shadow-card border-border bg-gradient-to-r from-blue-50 to-indigo-50">
+            <CardContent className="py-4 flex items-center justify-between">
+              <div>
+                <p className="font-display font-bold text-lg text-foreground">Upload & Manage Materials</p>
+                <p className="text-sm text-muted-foreground">Upload textbooks, PDFs, videos, presentations and manage all learning resources. AI will auto-process uploaded content for RAG.</p>
+              </div>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => navigate('/admin/materials')}>
+                <BookOpen className="w-4 h-4 mr-2" /> Open Materials Manager
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card className="shadow-card border-border">
             <CardHeader>
               <CardTitle className="font-display text-lg flex items-center gap-2">
@@ -1453,8 +1466,8 @@ const AdminDashboard = () => {
                           )}
                         </div>
                         <div className="flex gap-2 mt-4">
-                          <Button variant="outline" size="sm">Upload</Button>
-                          <Button variant="outline" size="sm">+ Quiz</Button>
+                          <Button variant="outline" size="sm" onClick={() => navigate('/admin/materials')}>Upload Material</Button>
+                          <Button variant="outline" size="sm" onClick={() => navigate('/admin/quizzes')}>+ Quiz</Button>
                         </div>
                       </>
                     );

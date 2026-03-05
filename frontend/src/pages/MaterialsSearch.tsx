@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getApiBase } from '@/api/client';
 import {
   Search as SearchIcon,
   Filter,
@@ -73,19 +74,21 @@ const MaterialsSearch = () => {
 
   const [subjects, setSubjects] = useState([]);
 
+  const API = getApiBase();
+
   // Fetch initial data
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         setLoading(true);
         // Fetch all materials
-        const matsRes = await fetch('/api/materials');
+        const matsRes = await fetch(`${API}/api/materials`);
         const matsData = await matsRes.json();
         setMaterials(matsData || []);
         setFilteredMaterials(matsData || []);
 
         // Fetch subjects
-        const subjRes = await fetch('/api/admin/subjects');
+        const subjRes = await fetch(`${API}/api/admin/subjects`);
         const subjData = await subjRes.json();
         setSubjects(subjData || []);
       } catch (err) {

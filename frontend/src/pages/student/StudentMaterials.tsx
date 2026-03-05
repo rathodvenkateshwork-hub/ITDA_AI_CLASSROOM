@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { getApiBase } from '@/api/client';
 import {
   Download,
   Search,
@@ -41,13 +42,15 @@ const StudentMaterials = () => {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [ratingForm, setRatingForm] = useState({ material_id: '', rating: 0, feedback: '' });
 
+  const API = getApiBase();
+
   // Fetch data on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         // Fetch materials for student's class
-        const matsRes = await fetch(`/api/materials/student/${studentId}/materials`);
+        const matsRes = await fetch(`${API}/api/materials/student/${studentId}/materials`);
         const matsData = await matsRes.json();
         setMaterials(matsData || []);
 
@@ -56,7 +59,7 @@ const StudentMaterials = () => {
           const progressMap = {};
           for (const mat of matsData) {
             try {
-              const progRes = await fetch(`/api/materials/${mat.id}/student-progress?student_id=${studentId}`);
+              const progRes = await fetch(`${API}/api/materials/${mat.id}/student-progress?student_id=${studentId}`);
               const progData = await progRes.json();
               progressMap[mat.id] = progData;
             } catch (err) {
@@ -79,7 +82,7 @@ const StudentMaterials = () => {
     
     // Record material access
     try {
-      await fetch(`/api/materials/${material.id}/student-access`, {
+      await fetch(`${API}/api/materials/${material.id}/student-access`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -102,7 +105,7 @@ const StudentMaterials = () => {
     }
 
     try {
-      await fetch(`/api/materials/${ratingForm.material_id}/rate`, {
+      await fetch(`${API}/api/materials/${ratingForm.material_id}/rate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

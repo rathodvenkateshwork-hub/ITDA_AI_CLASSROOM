@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { getApiBase } from '@/api/client';
 import {
   Download,
   Search,
@@ -50,6 +51,8 @@ const TeacherMaterials = () => {
 
   const [showAssignDialog, setShowAssignDialog] = useState(false);
 
+  const API = getApiBase();
+
   // Fetch data on mount
   useEffect(() => {
     const fetchData = async () => {
@@ -57,12 +60,12 @@ const TeacherMaterials = () => {
         setLoading(true);
         
         // Fetch all available materials
-        const matsRes = await fetch('/api/materials?is_published=true');
+        const matsRes = await fetch(`${API}/api/materials?is_published=true`);
         const matsData = await matsRes.json();
         setMaterials(matsData || []);
 
         // Fetch teacher's classes and assignments
-        const assignRes = await fetch(`/api/materials/teacher/${teacherId}/assignments`);
+        const assignRes = await fetch(`${API}/api/materials/teacher/${teacherId}/assignments`);
         const assignData = await assignRes.json();
         setAssignments(assignData || []);
 
@@ -94,7 +97,7 @@ const TeacherMaterials = () => {
         assignment_notes: assignmentForm.assignment_notes || null,
       };
 
-      const response = await fetch('/api/materials/assign/class', {
+      const response = await fetch(`${API}/api/materials/assign/class`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -103,7 +106,7 @@ const TeacherMaterials = () => {
       if (!response.ok) throw new Error('Failed to assign material');
 
       // Refresh assignments
-      const assignRes = await fetch(`/api/materials/teacher/${teacherId}/assignments`);
+      const assignRes = await fetch(`${API}/api/materials/teacher/${teacherId}/assignments`);
       const assignData = await assignRes.json();
       setAssignments(assignData || []);
 

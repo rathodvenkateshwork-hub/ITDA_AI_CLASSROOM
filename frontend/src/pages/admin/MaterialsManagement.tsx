@@ -20,6 +20,9 @@ import {
   X,
   Settings,
   LayoutGrid,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import {
   Dialog,
@@ -28,6 +31,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { getApiBase } from '@/api/client';
 
 const MaterialsManagement = () => {
   const [materials, setMaterials] = useState([]);
@@ -39,6 +43,9 @@ const MaterialsManagement = () => {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [topics, setTopics] = useState([]);
+  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error' | 'processing'; message: string } | null>(null);
+
+  const API = getApiBase();
 
   // Form states
   const [materialForm, setMaterialForm] = useState({
@@ -95,12 +102,12 @@ const MaterialsManagement = () => {
       try {
         setLoading(true);
         // Fetch materials
-        const matsRes = await fetch('/api/materials');
+        const matsRes = await fetch(`${API}/api/materials`);
         const matsData = await matsRes.json();
         setMaterials(matsData || []);
 
         // Fetch subjects
-        const subjRes = await fetch('/api/admin/subjects');
+        const subjRes = await fetch(`${API}/api/admin/subjects`);
         const subjData = await subjRes.json();
         setSubjects(subjData || []);
       } catch (err) {
@@ -117,12 +124,14 @@ const MaterialsManagement = () => {
     const fetchChapters = async () => {
       if (materialForm.subject_id) {
         try {
-          const res = await fetch(`/api/materials?subject_id=${materialForm.subject_id}`);
+          const res = await fetch(`${API}/api/admin/chapters?subject_id=${materialForm.subject_id}`);
           const data = await res.json();
           setChapters(data || []);
         } catch (err) {
           console.error('Failed to fetch chapters:', err);
         }
+      } else {
+        setChapters([]);
       }
     };
     fetchChapters();
@@ -133,12 +142,14 @@ const MaterialsManagement = () => {
     const fetchTopics = async () => {
       if (materialForm.chapter_id) {
         try {
-          const res = await fetch(`/api/materials?chapter_id=${materialForm.chapter_id}`);
+          const res = await fetch(`${API}/api/admin/topics?chapter_id=${materialForm.chapter_id}`);
           const data = await res.json();
           setTopics(data || []);
         } catch (err) {
           console.error('Failed to fetch topics:', err);
         }
+      } else {
+        setTopics([]);
       }
     };
     fetchTopics();
@@ -156,7 +167,9 @@ const MaterialsManagement = () => {
         grade_level: materialForm.grade_level ? parseInt(materialForm.grade_level) : null,
       };
 
-      const response = await fetch('/api/materials', {
+      setUploadStatus({ type: 'processing', message: 'Uploading material & running AI pipeline...' });
+
+      const response = await fetch(`${API}/api/materials`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -166,6 +179,13 @@ const MaterialsManagement = () => {
 
       const newMaterial = await response.json();
       setMaterials([...materials, newMaterial]);
+
+      const chunksCreated = newMaterial.chunks_created || 0;
+      setUploadStatus({
+        type: 'success',
+        message: `Material uploaded successfully! ${chunksCreated > 0 ? `${chunksCreated} chunks created & embedded for AI.` : 'Add a description with content to enable AI features.'}`,
+      });
+      setTimeout(() => setUploadStatus(null), 8000);
 
       // Reset form
       setMaterialForm({
@@ -187,7 +207,8 @@ const MaterialsManagement = () => {
       setShowUploadDialog(false);
     } catch (err) {
       console.error('Failed to upload material:', err);
-      alert('Failed to upload material. Please try again.');
+      setUploadStatus({ type: 'error', message: 'Failed to upload material. Please try again.' });
+      setTimeout(() => setUploadStatus(null), 5000);
     } finally {
       setLoading(false);
     }
@@ -196,7 +217,7 @@ const MaterialsManagement = () => {
   const handleDeleteMaterial = async (id) => {
     if (window.confirm('Are you sure you want to delete this material?')) {
       try {
-        await fetch(`/api/materials/${id}`, { method: 'DELETE' });
+        await fetch(`${API}/api/materials/${id}`, { method: 'DELETE' });
         setMaterials(materials.filter(m => m.id !== id));
       } catch (err) {
         console.error('Failed to delete material:', err);
@@ -258,6 +279,20 @@ const MaterialsManagement = () => {
         <h1 className="text-4xl font-bold text-gray-900 mb-2">📚 Materials Management</h1>
         <p className="text-gray-600">Upload, organize, and manage learning materials including textbooks, videos, PPTs, and resources</p>
       </div>
+
+      {/* Upload Status Banner */}
+      {uploadStatus && (
+        <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
+          uploadStatus.type === 'success' ? 'bg-green-50 border border-green-200 text-green-800' :
+          uploadStatus.type === 'error' ? 'bg-red-50 border border-red-200 text-red-800' :
+          'bg-blue-50 border border-blue-200 text-blue-800'
+        }`}>
+          {uploadStatus.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />}
+          {uploadStatus.type === 'error' && <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />}
+          {uploadStatus.type === 'processing' && <Loader2 className="w-5 h-5 text-blue-600 shrink-0 animate-spin" />}
+          <p className="text-sm font-medium">{uploadStatus.message}</p>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
@@ -372,10 +407,13 @@ const MaterialsManagement = () => {
                   <Label>Chapter</Label>
                   <select
                     value={materialForm.chapter_id}
-                    onChange={(e) => setMaterialForm({...materialForm, chapter_id: e.target.value})}
+                    onChange={(e) => setMaterialForm({...materialForm, chapter_id: e.target.value, topic_id: ''})}
                     className="w-full border rounded px-3 py-2"
                   >
                     <option value="">Select Chapter</option>
+                    {chapters.map(ch => (
+                      <option key={ch.id} value={ch.id}>{ch.name || ch.chapter_name || `Chapter ${ch.id}`}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -386,6 +424,9 @@ const MaterialsManagement = () => {
                     className="w-full border rounded px-3 py-2"
                   >
                     <option value="">Select Topic</option>
+                    {topics.map(t => (
+                      <option key={t.id} value={t.id}>{t.name || t.topic_name || `Topic ${t.id}`}</option>
+                    ))}
                   </select>
                 </div>
               </div>

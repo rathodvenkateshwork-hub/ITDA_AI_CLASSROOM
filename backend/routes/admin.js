@@ -23,6 +23,8 @@ const ChapterProgress = makeLooseModel('ChapterProgress', 'chapter_progress');
 const WeakTopic = makeLooseModel('WeakTopic', 'weak_topics');
 const SessionAttendance = makeLooseModel('SessionAttendance', 'session_attendance');
 const Badge = makeLooseModel('Badge', 'badges');
+const Chapter = makeLooseModel('Chapter', 'chapters');
+const TopicModel = makeLooseModel('TopicModel', 'topics');
 
 // ============================================
 // ADMIN DASHBOARD - STATISTICS (12 endpoints)
@@ -551,6 +553,41 @@ router.get('/schools/:id/performance-summary', async (req, res) => {
   } catch (err) {
     console.error('GET /api/admin/schools/:id/performance-summary error:', err);
     res.status(500).json({ error: 'Failed to fetch performance summary' });
+  }
+});
+
+// ── Subjects / Chapters / Topics listing ─────────────────────
+router.get('/subjects', async (req, res) => {
+  try {
+    const subjects = await Subject.find({}).lean();
+    res.json(subjects || []);
+  } catch (err) {
+    console.error('GET /api/admin/subjects error:', err);
+    res.status(500).json({ error: 'Failed to fetch subjects' });
+  }
+});
+
+router.get('/chapters', async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.subject_id) filter.subject_id = Number(req.query.subject_id);
+    const chaptersAll = await Chapter.find(filter).lean();
+    res.json(chaptersAll || []);
+  } catch (err) {
+    console.error('GET /api/admin/chapters error:', err);
+    res.status(500).json({ error: 'Failed to fetch chapters' });
+  }
+});
+
+router.get('/topics', async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.chapter_id) filter.chapter_id = Number(req.query.chapter_id);
+    const topicsAll = await TopicModel.find(filter).lean();
+    res.json(topicsAll || []);
+  } catch (err) {
+    console.error('GET /api/admin/topics error:', err);
+    res.status(500).json({ error: 'Failed to fetch topics' });
   }
 });
 

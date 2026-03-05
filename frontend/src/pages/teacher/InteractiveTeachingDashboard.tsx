@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { getApiBase } from '@/api/client';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const InteractiveTeachingDashboard = () => {
@@ -17,6 +18,8 @@ const InteractiveTeachingDashboard = () => {
   const [sessionHistory, setSessionHistory] = useState([]);
   const [contextChunks, setContextChunks] = useState([]);
 
+  const API = getApiBase();
+
   // Fetch dashboard data
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -27,7 +30,7 @@ const InteractiveTeachingDashboard = () => {
         }
 
         const response = await fetch(
-          `/api/rag/teacher/${teacherId}/dashboard/class/${selectedClass}/subject/${selectedSubject}`
+          `${API}/api/rag/teacher/${teacherId}/dashboard/class/${selectedClass}/subject/${selectedSubject}`
         );
         const data = await response.json();
         setDashboard(data);
@@ -57,7 +60,7 @@ const InteractiveTeachingDashboard = () => {
         student_count: dashboard?.class?.student_count || 30,
       };
 
-      const response = await fetch(`/api/rag/interactive-session`, {
+      const response = await fetch(`${API}/api/rag/interactive-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sessionData),
@@ -76,7 +79,7 @@ const InteractiveTeachingDashboard = () => {
   // Retrieve RAG context
   const retrieveContext = async (sessionId, sessionType) => {
     try {
-      const response = await fetch(`/api/rag/interactive-session/${sessionId}/retrieve-context`, {
+      const response = await fetch(`${API}/api/rag/interactive-session/${sessionId}/retrieve-context`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -97,7 +100,7 @@ const InteractiveTeachingDashboard = () => {
     try {
       setGeneratingContent(true);
 
-      const response = await fetch(`/api/rag/interactive-session/${currentSession.id}/generate-ppt`, {
+      const response = await fetch(`${API}/api/rag/interactive-session/${currentSession.id}/generate-ppt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -123,7 +126,7 @@ const InteractiveTeachingDashboard = () => {
     try {
       setGeneratingContent(true);
 
-      const response = await fetch(`/api/rag/interactive-session/${currentSession.id}/generate-quiz`, {
+      const response = await fetch(`${API}/api/rag/interactive-session/${currentSession.id}/generate-quiz`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -151,7 +154,7 @@ const InteractiveTeachingDashboard = () => {
       setGeneratingContent(true);
 
       const response = await fetch(
-        `/api/rag/interactive-session/${currentSession.id}/get-youtube-recommendations`,
+        `${API}/api/rag/interactive-session/${currentSession.id}/get-youtube-recommendations`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -170,10 +173,35 @@ const InteractiveTeachingDashboard = () => {
     }
   };
 
+  // Generate Summary
+  const generateSummary = async () => {
+    try {
+      setGeneratingContent(true);
+
+      const response = await fetch(`${API}/api/rag/interactive-session/${currentSession.id}/generate-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `Summary - Class ${selectedClass} - ${selectedSubject}`,
+        }),
+      });
+
+      const content = await response.json();
+      setGeneratedContent({
+        type: 'summary',
+        ...content,
+      });
+    } catch (error) {
+      console.error('Error generating summary:', error);
+    } finally {
+      setGeneratingContent(false);
+    }
+  };
+
   // Complete session
   const completeSession = async () => {
     try {
-      await fetch(`/api/rag/interactive-session/${currentSession.id}/complete`, {
+      await fetch(`${API}/api/rag/interactive-session/${currentSession.id}/complete`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -391,7 +419,7 @@ const InteractiveTeachingDashboard = () => {
 
                 {currentSession.session_type === 'summary' && (
                   <button
-                    onClick={generateQuiz}
+                    onClick={generateSummary}
                     disabled={generatingContent}
                     className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400"
                   >
@@ -419,14 +447,20 @@ const InteractiveTeachingDashboard = () => {
                   <div className="space-y-4">
                     <div className="p-4 bg-blue-50 rounded-lg">
                       <p className="text-sm font-medium text-blue-900">PPT Generated Successfully ✓</p>
-                      <p className="text-sm text-gray-700 mt-2">{generatedContent.slides} slides created</p>
-                      <a
-                        href={generatedContent.content_url}
-                        download
-                        className="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                      >
-                        📥 Download PPT
-                      </a>
+                      <p className="text-sm text-gray-700 mt-2">{generatedContent.generated_content?.slides?.length || 0} slides created</p>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto space-y-3">
+                      {(generatedContent.generated_content?.slides || []).map((slide: any, idx: number) => (
+                        <div key={idx} className="p-4 bg-white border rounded-lg">
+                          <p className="font-bold text-blue-900">Slide {idx + 1}: {slide.title}</p>
+                          {slide.bullet_points && (
+                            <ul className="mt-2 list-disc list-inside text-sm text-gray-700 space-y-1">
+                              {slide.bullet_points.map((bp: string, i: number) => <li key={i}>{bp}</li>)}
+                            </ul>
+                          )}
+                          {slide.teacher_notes && <p className="mt-2 text-xs text-gray-500 italic">Notes: {slide.teacher_notes}</p>}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -436,14 +470,49 @@ const InteractiveTeachingDashboard = () => {
                   <div className="space-y-4">
                     <div className="p-4 bg-green-50 rounded-lg">
                       <p className="text-sm font-medium text-green-900">Quiz Generated Successfully ✓</p>
-                      <p className="text-sm text-gray-700 mt-2">{generatedContent.questions} questions created</p>
-                      <a
-                        href={generatedContent.content_url}
-                        download
-                        className="mt-3 inline-block px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                      >
-                        📥 Download Quiz
-                      </a>
+                      <p className="text-sm text-gray-700 mt-2">{generatedContent.generated_content?.questions?.length || 0} questions</p>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto space-y-3">
+                      {(generatedContent.generated_content?.questions || []).map((q: any, idx: number) => (
+                        <div key={idx} className="p-4 bg-white border rounded-lg">
+                          <p className="font-medium text-gray-900">Q{idx + 1}. {q.question}</p>
+                          {q.options && (
+                            <div className="mt-2 space-y-1">
+                              {q.options.map((opt: string, i: number) => (
+                                <p key={i} className={`text-sm px-3 py-1 rounded ${opt === q.correct_answer ? 'bg-green-100 text-green-800 font-medium' : 'text-gray-700'}`}>
+                                  {String.fromCharCode(65 + i)}. {opt}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                          {q.explanation && <p className="mt-2 text-xs text-gray-500 italic">{q.explanation}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Summary Content */}
+                {generatedContent.type === 'summary' && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <p className="text-sm font-medium text-purple-900">Summary Generated Successfully ✓</p>
+                    </div>
+                    <div className="p-4 bg-white border rounded-lg max-h-96 overflow-y-auto">
+                      {generatedContent.generated_content?.sections ? (
+                        generatedContent.generated_content.sections.map((sec: any, idx: number) => (
+                          <div key={idx} className="mb-4">
+                            <h4 className="font-bold text-gray-900">{sec.heading}</h4>
+                            <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{sec.content}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                          {typeof generatedContent.generated_content === 'string'
+                            ? generatedContent.generated_content
+                            : JSON.stringify(generatedContent.generated_content, null, 2)}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -451,22 +520,22 @@ const InteractiveTeachingDashboard = () => {
                 {/* YouTube Recommendations */}
                 {generatedContent.type === 'youtube' && (
                   <div className="space-y-4">
-                    {generatedContent.recommendations?.map((video, idx) => (
+                    {(generatedContent.generated_content?.recommendations || generatedContent.recommendations || []).map((video: any, idx: number) => (
                       <div key={idx} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <p className="font-medium text-gray-900">{video.title}</p>
-                            <p className="text-sm text-gray-600 mt-1">{video.channel}</p>
-                            <p className="text-xs text-gray-500 mt-2">{video.views} views • {video.duration}</p>
+                            <p className="text-sm text-gray-600 mt-1">{video.channel || video.description}</p>
+                            {video.search_query && <p className="text-xs text-gray-500 mt-1">Search: "{video.search_query}"</p>}
                           </div>
-                          <a
+                          {video.url && <a
                             href={video.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="ml-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
                           >
                             Watch
-                          </a>
+                          </a>}
                         </div>
                       </div>
                     ))}
