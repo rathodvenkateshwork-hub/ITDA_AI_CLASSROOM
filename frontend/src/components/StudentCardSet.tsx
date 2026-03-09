@@ -213,6 +213,8 @@ export default function StudentCardSet({ student }: Props) {
         <div>
           <h3 className="text-lg font-bold text-green-800">Student Cards Ready!</h3>
           <p className="text-sm text-green-600">ID card + 4 option QR cards for <strong>{student.name}</strong></p>
+          <p className="text-xs text-green-700 mt-1">Generate unique QR code</p>
+          <p className="text-xs font-mono text-green-800">Unique ID: {student.student_unique_id || student.id}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1.5">

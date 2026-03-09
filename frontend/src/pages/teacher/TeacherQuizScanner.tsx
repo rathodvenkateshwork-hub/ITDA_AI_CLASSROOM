@@ -11,6 +11,10 @@ interface ScannedResponse {
   submitted: boolean;
 }
 
+type ParsedQR =
+  | { kind: 'response'; student_id: string; option: string }
+  | { kind: 'student-id'; qr_data: string };
+
 interface QuizSession {
   id: number;
   title: string;
@@ -74,15 +78,25 @@ export default function TeacherQuizScanner() {
   };
 
   // Parse QR code data: expected format "student_id|option"
-  const parseQRCode = (data: string): { student_id: string; option: string } | null => {
+  const parseQRCode = (data: string): ParsedQR | null => {
     const parts = data.split('|');
     if (parts.length === 2) {
       const student_id = parts[0].trim();
       const option = parts[1].trim().toUpperCase();
       if (['A', 'B', 'C', 'D'].includes(option) && student_id) {
-        return { student_id, option };
+        return { kind: 'response', student_id, option };
       }
     }
+
+    try {
+      const parsed = JSON.parse(data);
+      if (parsed && (parsed.student_id || parsed.student_unique_id)) {
+        return { kind: 'student-id', qr_data: data };
+      }
+    } catch {
+      // ignore parse error
+    }
+
     return null;
   };
 
@@ -98,6 +112,28 @@ export default function TeacherQuizScanner() {
     if (!parsed) {
       setError(`Invalid QR code: ${decodedText}`);
       setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (parsed.kind === 'student-id') {
+      try {
+        const res = await fetch(`${API}/api/students/qr/lookup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ qr_data: parsed.qr_data }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data?.error || 'Unable to fetch student details');
+          setTimeout(() => setError(''), 3000);
+          return;
+        }
+        setSuccessMsg(`Student: ${data.full_name} | ID: ${data.student_unique_id || data.id} | Class: ${data.class_name || 'N/A'}`);
+        setTimeout(() => setSuccessMsg(''), 4000);
+      } catch {
+        setError('Unable to fetch student details');
+        setTimeout(() => setError(''), 3000);
+      }
       return;
     }
 

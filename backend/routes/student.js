@@ -39,7 +39,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'email (or unique ID) and password are required' });
+      return res.status(400).json({ error: 'Credentials are wrong' });
     }
 
     const identifier = String(email).trim();
@@ -52,12 +52,12 @@ router.post('/login', async (req, res) => {
     }).lean();
 
     if (!student) {
-      return res.status(401).json({ error: 'Invalid email/ID or password' });
+      return res.status(401).json({ error: 'Credentials are wrong' });
     }
 
     const passwordMatch = await bcrypt.compare(password, student.password_hash || '');
     if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid email/ID or password' });
+      return res.status(401).json({ error: 'Credentials are wrong' });
     }
 
     res.json({

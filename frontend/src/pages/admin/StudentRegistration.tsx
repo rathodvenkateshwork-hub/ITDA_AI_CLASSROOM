@@ -4,9 +4,13 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { StudentForm, RegisteredStudentData } from "./RegistrationForms";
 import StudentCardSet from "@/components/StudentCardSet";
 import { Button } from "@/components/ui/button";
+import { useAppData } from "@/contexts/DataContext";
 
 const StudentRegistration: React.FC = () => {
   const [registeredStudent, setRegisteredStudent] = useState<RegisteredStudentData | null>(null);
+  const { data, refetch } = useAppData();
+  const schools = data.schools ?? [];
+  const classes = data.classes ?? [];
 
   return (
     <DashboardLayout title="Student Registration">
@@ -35,7 +39,14 @@ const StudentRegistration: React.FC = () => {
             <CardTitle>Student Registration</CardTitle>
           </CardHeader>
           <div className="p-4">
-            <StudentForm onRegistered={(data) => setRegisteredStudent(data)} />
+            <StudentForm
+              schools={schools.map((s) => ({ id: s.id, name: s.name }))}
+              classes={classes.map((c) => ({ id: c.id, name: c.name, schoolId: c.schoolId, grade: c.grade }))}
+              onRegistered={(studentData) => {
+                setRegisteredStudent(studentData);
+                refetch();
+              }}
+            />
             <p className="text-sm text-right mt-2">
               <a href="/admin/bulk/students" className="text-blue-600 hover:underline">Bulk upload students (CSV)</a>
             </p>

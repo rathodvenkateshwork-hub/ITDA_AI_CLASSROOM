@@ -297,6 +297,7 @@ app.get("/api/all", async (req, res) => {
       section: s.section || "",
       classId: enrollmentByStudent[toId(modelId(s))] || null,
       schoolId: toId(s.school_id),
+      student_unique_id: s.student_unique_id || null,
       score: 0,
     }));
 
@@ -667,6 +668,56 @@ app.post("/api/students", async (req, res) => {
   } catch (err) {
     console.error("POST /api/students error:", err);
     res.status(500).json({ error: String(err.message) });
+  }
+});
+
+app.post("/api/students/qr/lookup", async (req, res) => {
+  const { qr_data } = req.body || {};
+  if (!qr_data || !String(qr_data).trim()) {
+    return res.status(400).json({ error: "qr_data is required" });
+  }
+
+  try {
+    const raw = String(qr_data).trim();
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = null;
+    }
+
+    const candidateId = parsed?.student_id ?? null;
+    const candidateUniqueId = parsed?.student_unique_id ?? raw;
+
+    const student = await Student.findOne({
+      $or: [
+        { student_unique_id: String(candidateUniqueId) },
+        ...(candidateId != null ? [{ id: { $in: idVariants(candidateId) } }] : []),
+      ],
+    }).lean();
+
+    if (!student) {
+      return res.status(404).json({ error: "Student not found for this QR code" });
+    }
+
+    const enrollment = await Enrollment.findOne({ student_id: { $in: idVariants(student.id) } }).lean();
+    const classRow = enrollment ? await ClassModel.findOne({ id: { $in: idVariants(enrollment.class_id) } }).lean() : null;
+    const schoolRow = await School.findOne({ id: { $in: idVariants(student.school_id) } }).lean();
+
+    return res.json({
+      id: toId(modelId(student)),
+      student_unique_id: student.student_unique_id || null,
+      full_name: student.full_name,
+      roll_no: student.roll_no,
+      section: student.section || null,
+      class_id: classRow ? toId(modelId(classRow)) : null,
+      class_name: classRow?.name || null,
+      school_id: schoolRow ? toId(modelId(schoolRow)) : toId(student.school_id),
+      school_name: schoolRow?.name || null,
+    });
+  } catch (err) {
+    console.error("POST /api/students/qr/lookup error:", err);
+    return res.status(500).json({ error: String(err.message) });
   }
 });
 

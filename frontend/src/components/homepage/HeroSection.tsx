@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Brain, BarChart3, Video, BookOpen } from "lucide-react";
+import { ArrowRight, Brain, BarChart3, Video, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import heroDashboard from "@/assets/hero-dashboard.jpg";
 
@@ -22,21 +22,15 @@ const HeroSection = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
-              <Sparkles className="w-4 h-4" />
-              AI-Powered School LMS — Classes 5 to 10
-            </div>
             <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6">
-              Smart Student{" "}
-              <span className="text-gradient">Learning Portal</span>
+              NavShiksha{" "}
+              <span className="text-gradient">AI Academy</span>
             </h1>
             <p className="text-lg text-muted-foreground mb-2 max-w-lg">
-              AI-Powered Teaching • Interactive Learning • Real-Time Monitoring
+              Redefining Education through Interactive AI Learning
             </p>
-            <p className="text-muted-foreground mb-6 max-w-lg">
-              A complete Learning Management System with AI-assisted teaching,
-              classroom auto-recording, chapter-wise quizzes, and comprehensive
-              analytics for students, teachers, and administrators.
+            <p className="text-sm text-muted-foreground mt-4 mb-6 max-w-lg text-left ml-10">
+              Developed by CodeAurora | In collaboration with ITDA
             </p>
 
             {/* AI Features Pills */}

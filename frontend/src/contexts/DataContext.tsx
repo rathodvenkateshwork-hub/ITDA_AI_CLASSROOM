@@ -1,30 +1,5 @@
 import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
 import { fetchAll, type AllDataResponse } from "@/api/client";
-import {
-  schools as defaultSchools,
-  classes as defaultClasses,
-  teachers as defaultTeachers,
-  students as defaultStudents,
-  subjects as defaultSubjects,
-  chapters as defaultChapters,
-  topics as defaultTopics,
-  activityLogs as defaultActivityLogs,
-  classStatus as defaultClassStatus,
-  leaveApplications as defaultLeaveApplications,
-  classRecordings as defaultClassRecordings,
-  homework as defaultHomework,
-  studentAttendance as defaultStudentAttendance,
-  liveSessions as defaultLiveSessions,
-  studentQuizResults as defaultStudentQuizResults,
-  studyMaterials as defaultStudyMaterials,
-  chapterQuizzes as defaultChapterQuizzes,
-  impactMetrics as defaultImpactMetrics,
-  teacherEffectiveness as defaultTeacherEffectiveness,
-  weakTopicHeatmap as defaultWeakTopicHeatmap,
-  engagementMetrics as defaultEngagementMetrics,
-  curriculum as defaultCurriculum,
-  studentUsageLogs as defaultStudentUsageLogs,
-} from "@/data/demo-data";
 
 const emptyData: AllDataResponse = {
   schools: [],
@@ -93,32 +68,7 @@ type DataState = {
 
 const DataContext = createContext<DataState | null>(null);
 
-const defaultData: AllDataResponse = toAppData({
-  ...emptyData,
-  schools: defaultSchools as AllDataResponse["schools"],
-  classes: defaultClasses as AllDataResponse["classes"],
-  teachers: defaultTeachers as AllDataResponse["teachers"],
-  students: defaultStudents as AllDataResponse["students"],
-  subjects: defaultSubjects as AllDataResponse["subjects"],
-  chapters: defaultChapters as AllDataResponse["chapters"],
-  topics: defaultTopics as AllDataResponse["topics"],
-  activityLogs: defaultActivityLogs as AllDataResponse["activityLogs"],
-  classStatus: defaultClassStatus as AllDataResponse["classStatus"],
-  leaveApplications: defaultLeaveApplications as AllDataResponse["leaveApplications"],
-  classRecordings: defaultClassRecordings as AllDataResponse["classRecordings"],
-  homework: defaultHomework as AllDataResponse["homework"],
-  studentAttendance: defaultStudentAttendance as AllDataResponse["studentAttendance"],
-  liveSessions: defaultLiveSessions as AllDataResponse["liveSessions"],
-  studentQuizResults: defaultStudentQuizResults as AllDataResponse["studentQuizResults"],
-  studyMaterials: defaultStudyMaterials as AllDataResponse["studyMaterials"],
-  chapterQuizzes: defaultChapterQuizzes as AllDataResponse["chapterQuizzes"],
-  impactMetrics: defaultImpactMetrics as AllDataResponse["impactMetrics"],
-  teacherEffectiveness: defaultTeacherEffectiveness as AllDataResponse["teacherEffectiveness"],
-  weakTopicHeatmap: defaultWeakTopicHeatmap as AllDataResponse["weakTopicHeatmap"],
-  engagementMetrics: defaultEngagementMetrics as AllDataResponse["engagementMetrics"],
-  curriculum: defaultCurriculum as AllDataResponse["curriculum"],
-  studentUsageLogs: defaultStudentUsageLogs as AllDataResponse["studentUsageLogs"],
-});
+const defaultData: AllDataResponse = emptyData;
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [apiData, setApiData] = useState<AllDataResponse | null>(null);

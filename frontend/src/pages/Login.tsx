@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GraduationCap, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import { students } from "@/data/demo-data";
-import { adminLogin, teacherLogin, studentLogin, getApiBase } from "@/api/client";
+import { adminLogin, teacherLogin, studentLogin } from "@/api/client";
 
 const Login = () => {
   const [searchParams] = useSearchParams();
@@ -15,49 +14,47 @@ const Login = () => {
   const role: "teacher" | "admin" | "student" = roleParam === "student" ? "student" : roleParam === "teacher" ? "teacher" : "admin";
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("demo123");
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const { login } = useAuth();
 
   // optional: pre-fill only for demo/admin; teacher/student use DB credentials
   useEffect(() => {
     if (role === "admin") {
-      setEmail("admin@demo.com");
-      setPassword("demo123");
+      setEmail("");
+      setPassword("");
     } else if (role === "student") {
-      setEmail("st1");
-      setPassword("demo123");
+      setEmail("");
+      setPassword("");
     } else {
       setEmail("");
       setPassword("");
     }
   }, [role]);
 
+  const toLoginErrorMessage = (err: unknown, roleName: "admin" | "teacher" | "student") => {
+    if (err instanceof TypeError) {
+      return "Unable to connect to server. Please ensure backend is running.";
+    }
+    if (err instanceof Error && err.message && err.message.trim()) {
+      return err.message;
+    }
+    if (roleName === "student") {
+      return "Credentials are wrong";
+    }
+    return "Login failed. Please try again.";
+  };
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (role === "student") {
-      let handled = false;
-      // attempt API login if base url available
-      if (getApiBase()) {
-        try {
-          const data = await studentLogin({ email: email.trim(), password });
-          login("student", data.name, data.student_unique_id || data.id);
-          navigate("/student");
-          handled = true;
-        } catch (err) {
-          // fallthrough to demo fallback below
-        }
-      }
-      if (!handled) {
-        // fallback to local demo data
-        const student = students.find((s) => s.id === email);
-        if (student) {
-          login("student", student.name || "Student", email);
-          navigate("/student");
-        } else {
-          alert("Login failed");
-        }
+      try {
+        const data = await studentLogin({ email: email.trim(), password });
+        login("student", data.name, data.student_unique_id || data.id);
+        navigate("/student");
+      } catch (err) {
+        alert(toLoginErrorMessage(err, "student"));
       }
     } else if (role === "admin") {
       try {
@@ -65,7 +62,7 @@ const Login = () => {
         login("admin", data.full_name);
         navigate("/admin");
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Login failed");
+        alert(toLoginErrorMessage(err, "admin"));
       }
     } else if (role === "teacher") {
       try {
@@ -73,7 +70,7 @@ const Login = () => {
         login("teacher", data.full_name, undefined, data.id);
         navigate("/teacher/setup");
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Login failed");
+        alert(toLoginErrorMessage(err, "teacher"));
       }
     }
   };
@@ -116,7 +113,7 @@ const Login = () => {
                 placeholder={role === "student" ? "e.g. TG-01-001" : ""}
               />
               {role === "student" && (
-                <p className="text-xs text-muted-foreground mt-1">Demo IDs: st1 to st10 (Class 8-A), st11 to st20 (Class 9-B)</p>
+                <p className="text-xs text-muted-foreground mt-1">Use your registered Student Unique ID or email.</p>
               )}
             </div>
             <div>
@@ -130,7 +127,7 @@ const Login = () => {
           </form>
           {role === "admin" && (
             <p className="text-xs text-muted-foreground text-center mt-4">
-              Demo credentials may be pre-filled. Use your database credentials to sign in.
+              Use your database credentials to sign in.
             </p>
           )}
         </div>
